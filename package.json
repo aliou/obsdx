@@ -10,7 +10,8 @@
     "dev": "pnpm build && pnpm --dir packages/cli dev",
     "test": "turbo run test",
     "lint": "biome check",
-    "format": "biome check --write"
+    "format": "biome check --write",
+    "bump": "tsx scripts/bump.ts"
   },
   "devDependencies": {
     "@aliou/biome-plugins": "^0.8.1",
