@@ -1,6 +1,6 @@
 {
   "name": "@aliou/obsdx-cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Headless Obsidian vault intelligence CLI",
   "type": "module",
   "bin": {
