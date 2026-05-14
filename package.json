@@ -18,6 +18,7 @@
     "@biomejs/biome": "^2.4.15",
     "@tsdown/exe": "0.22.0",
     "@types/node": "^25.0.0",
+    "lefthook": "^2.1.6",
     "tsdown": "0.22.0",
     "tsx": "^4.19.3",
     "turbo": "^2.6.1",
@@ -29,7 +30,11 @@
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "esbuild"
+      "esbuild",
+      "lefthook"
+    ],
+    "ignoredBuiltDependencies": [
+      "lefthook"
     ]
   },
   "packageManager": "pnpm@10.6.4"
