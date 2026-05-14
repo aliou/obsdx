@@ -1,0 +1,14 @@
+formulas:
+  NumValid: 'number("3.14")'
+  NumInvalid: 'number("abc")'
+  NumBool: 'number(true)'
+  NumDate: 'number(now())'
+views:
+  - type: table
+    name: Number
+    order:
+      - file.name
+      - formula.NumValid
+      - formula.NumInvalid
+      - formula.NumBool
+      - formula.NumDate

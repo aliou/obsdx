@@ -1,0 +1,27 @@
+formulas:
+  Plus1d: date(birthday) + "1d"
+  Plus1w: date(birthday) + "1w"
+  Plus1M: date(birthday) + "1M"
+  Plus1y: date(birthday) + "1y"
+  Plus1h: date(birthday) + "1h"
+  PlusNamed: date(birthday) + "1 day"
+  Minus2h: now() - "2h"
+  Complex: date("2024-12-01") + "1M" + "4h" + "3m"
+  DurScalar: duration("5h") * 2
+  DurScalarResult: (duration("5h") * 2).hours
+views:
+  - type: table
+    name: DateArith
+    order:
+      - file.name
+      - birthday
+      - formula.Plus1d
+      - formula.Plus1w
+      - formula.Plus1M
+      - formula.Plus1y
+      - formula.Plus1h
+      - formula.PlusNamed
+      - formula.Minus2h
+      - formula.Complex
+      - formula.DurScalar
+      - formula.DurScalarResult

@@ -1,0 +1,10 @@
+formulas:
+  RegexNoFlag: '/alpha/.matches("ALPHA")'
+  RegexIFlag: '/alpha/i.matches("ALPHA")'
+views:
+  - type: table
+    name: Regex3
+    order:
+      - file.name
+      - formula.RegexNoFlag
+      - formula.RegexIFlag

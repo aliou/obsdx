@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/base-ast" },
+    { "path": "packages/base-engine" },
+    { "path": "packages/cli" }
+  ]
+}

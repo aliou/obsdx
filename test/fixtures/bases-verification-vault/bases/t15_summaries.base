@@ -1,0 +1,12 @@
+views:
+  - type: table
+    name: WithSummaries
+    order:
+      - file.name
+      - price
+      - rating
+      - priority
+    summaries:
+      price: Sum
+      rating: Average
+      priority: Min

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+**/.turbo/
+coverage/
+**/.obsidian/obsdx/
+.env
+.DS_Store
+
+.direnv

@@ -1,0 +1,8 @@
+formulas:
+  ThisName: 'this.file.name'
+views:
+  - type: table
+    name: ThisTest
+    order:
+      - file.name
+      - formula.ThisName

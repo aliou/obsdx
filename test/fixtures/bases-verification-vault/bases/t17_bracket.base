@@ -1,0 +1,12 @@
+formulas:
+  Bracket: 'note["price"]'
+  Dot: 'note.price'
+  Bare: 'price'
+views:
+  - type: table
+    name: Bracket
+    order:
+      - file.name
+      - formula.Bracket
+      - formula.Dot
+      - formula.Bare

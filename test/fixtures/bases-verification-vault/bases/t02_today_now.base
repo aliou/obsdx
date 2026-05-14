@@ -1,0 +1,16 @@
+formulas:
+  NowVal: now().toString()
+  TodayVal: today().toString()
+  NowHour: now().hour
+  TodayHour: today().hour
+  Diff: (now() - today()).hours
+views:
+  - type: table
+    name: TimeTest
+    order:
+      - file.name
+      - formula.NowVal
+      - formula.TodayVal
+      - formula.NowHour
+      - formula.TodayHour
+      - formula.Diff

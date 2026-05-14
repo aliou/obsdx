@@ -1,0 +1,14 @@
+formulas:
+  AndNum: '5 && 3'
+  OrNum: '0 || 3'
+  AndStr: '"hello" && "world"'
+  OrStr: 'null || "fallback"'
+views:
+  - type: table
+    name: Logic
+    order:
+      - file.name
+      - formula.AndNum
+      - formula.OrNum
+      - formula.AndStr
+      - formula.OrStr

@@ -1,0 +1,35 @@
+{
+  "name": "@aliou/obsdx-workspace",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Headless Obsidian vault intelligence CLI workspace",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "dev": "pnpm build && pnpm --dir packages/cli dev",
+    "test": "turbo run test",
+    "lint": "biome check",
+    "format": "biome check --write"
+  },
+  "devDependencies": {
+    "@aliou/biome-plugins": "^0.8.1",
+    "@biomejs/biome": "^2.4.15",
+    "@tsdown/exe": "0.22.0",
+    "@types/node": "^25.0.0",
+    "tsdown": "0.22.0",
+    "tsx": "^4.19.3",
+    "turbo": "^2.6.1",
+    "typescript": "^6.0.3",
+    "vitest": "^3.0.8"
+  },
+  "engines": {
+    "node": ">=25.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "packageManager": "pnpm@10.6.4"
+}

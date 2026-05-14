@@ -1,0 +1,10 @@
+formulas:
+  NotePrefix: 'note.price'
+  PropPrefix: 'property.price'
+views:
+  - type: table
+    name: Note
+    order:
+      - file.name
+      - formula.NotePrefix
+      - formula.PropPrefix

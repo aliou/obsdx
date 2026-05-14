@@ -1,0 +1,8 @@
+views:
+  - type: table
+    name: FileName
+    order:
+      - file.name
+      - file.basename
+      - file.ext
+      - file.path

@@ -1,0 +1,16 @@
+formulas:
+  EscapeHtml: 'escapeHTML("<b>bold</b>")'
+  Html: 'html("<b>bold</b>")'
+  Img: 'image("https://obsidian.md/logo.svg")'
+  IconVal: 'icon("arrow-right")'
+  Random: 'random()'
+views:
+  - type: table
+    name: Render
+    order:
+      - file.name
+      - formula.EscapeHtml
+      - formula.Html
+      - formula.Img
+      - formula.IconVal
+      - formula.Random

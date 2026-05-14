@@ -1,0 +1,10 @@
+views:
+  - type: table
+    name: ByStatus
+    groupBy:
+      property: status
+      direction: ASC
+    order:
+      - file.name
+      - status
+      - priority

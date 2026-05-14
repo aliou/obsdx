@@ -1,0 +1,14 @@
+formulas:
+  F1: 'date("2023-09-12 14:30:05").format("YYYY-MM-DD HH:mm:ss")'
+  F2: 'date("2023-09-12 14:30:05").format("dddd")'
+  F3: 'date("2023-09-12 14:30:05").format("MMM")'
+  F4: 'date("2023-09-12 14:30:05").format("dddd, MMMM Do, YYYY")'
+views:
+  - type: table
+    name: Format
+    order:
+      - file.name
+      - formula.F1
+      - formula.F2
+      - formula.F3
+      - formula.F4

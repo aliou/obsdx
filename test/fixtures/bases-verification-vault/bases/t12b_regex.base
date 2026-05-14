@@ -1,0 +1,12 @@
+formulas:
+  RegexAlpha: '/^A/.matches(file.basename)'
+  RegexDigit: '/^\d{4}/.matches("2023-01-01")'
+  RegexFlags: '/(?i)alpha/.matches("ALPHA")'
+views:
+  - type: table
+    name: Regex2
+    order:
+      - file.name
+      - formula.RegexAlpha
+      - formula.RegexDigit
+      - formula.RegexFlags

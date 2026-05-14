@@ -1,0 +1,16 @@
+formulas:
+  M1Days: 'duration("1M").days'
+  Y1Days: 'duration("1y").days'
+  W1Days: 'duration("1w").days'
+  H1Days: 'duration("1h").days'
+  S1Days: 'duration("1s").days'
+views:
+  - type: table
+    name: DurDays
+    order:
+      - file.name
+      - formula.M1Days
+      - formula.Y1Days
+      - formula.W1Days
+      - formula.H1Days
+      - formula.S1Days

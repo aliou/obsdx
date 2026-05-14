@@ -1,0 +1,9 @@
+summaries:
+  CustomAvg: 'values.mean().round(3)'
+views:
+  - type: table
+    name: CustomSum
+    order:
+      - file.name
+      - price
+      - rating

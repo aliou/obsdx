@@ -1,0 +1,30 @@
+formulas:
+  Day: 'duration("1 day").days'
+  Days: 'duration("2 days").days'
+  Week: 'duration("1 week").days'
+  Weeks: 'duration("3 weeks").days'
+  Hour: 'duration("1 hour").hours'
+  Hours: 'duration("2 hours").hours'
+  Minute: 'duration("1 minute").minutes'
+  Minutes: 'duration("5 minutes").minutes'
+  Second: 'duration("1 second").seconds'
+  Seconds: 'duration("30 seconds").seconds'
+  Month: 'duration("1 month").days'
+  Year: 'duration("1 year").days'
+views:
+  - type: table
+    name: DurNamed
+    order:
+      - file.name
+      - formula.Day
+      - formula.Days
+      - formula.Week
+      - formula.Weeks
+      - formula.Hour
+      - formula.Hours
+      - formula.Minute
+      - formula.Minutes
+      - formula.Second
+      - formula.Seconds
+      - formula.Month
+      - formula.Year

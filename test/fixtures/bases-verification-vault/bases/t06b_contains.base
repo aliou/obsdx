@@ -1,0 +1,14 @@
+formulas:
+  C1: '"Hello".contains("ell")'
+  C2: '"Hello".contains("ELLO")'
+  C3: '"Hello".contains("hello")'
+  C4: '"Hello".contains("Hello")'
+views:
+  - type: table
+    name: ContainsCase
+    order:
+      - file.name
+      - formula.C1
+      - formula.C2
+      - formula.C3
+      - formula.C4

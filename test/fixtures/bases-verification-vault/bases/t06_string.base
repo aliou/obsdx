@@ -1,0 +1,28 @@
+formulas:
+  Lower: '"Hello World".lower()'
+  Title: '"hello world".title()'
+  Trim: '" hi ".trim()'
+  StartsWith: '"hello".startsWith("he")'
+  EndsWith: '"hello".endsWith("lo")'
+  Replace: '"a:b:c:d".replace(":", "-")'
+  Repeat: '"123".repeat(2)'
+  Reverse: '"hello".reverse()'
+  Slice: '"hello".slice(1, 4)'
+  Split: '"a,b,c,d".split(",")'
+  Len: '"hello".length'
+views:
+  - type: table
+    name: String
+    order:
+      - file.name
+      - formula.Lower
+      - formula.Title
+      - formula.Trim
+      - formula.StartsWith
+      - formula.EndsWith
+      - formula.Replace
+      - formula.Repeat
+      - formula.Reverse
+      - formula.Slice
+      - formula.Split
+      - formula.Len

@@ -1,0 +1,17 @@
+formulas:
+  Min: 'min(3, 1, 4)'
+  Max: 'max(3, 1, 4)'
+  NumberStr: 'number("3.14")'
+  NumberInvalid: 'number("abc")'
+  NumberBool: 'number(true)'
+  NumberDate: 'number(now())'
+views:
+  - type: table
+    name: Globals
+    order:
+      - file.name
+      - formula.Min
+      - formula.Max
+      - formula.NumberStr
+      - formula.NumberBool
+      - formula.NumberDate

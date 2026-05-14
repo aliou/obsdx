@@ -1,0 +1,20 @@
+formulas:
+  Rnd0: (2.5).round()
+  Rnd2: (2.3333).round(2)
+  Rnd4: 3.14159.round(4)
+  Flr: (2.9).floor()
+  Cl: (2.1).ceil()
+  Abs: (-5).abs()
+  Fixed: 3.14159.toFixed(2)
+views:
+  - type: table
+    name: Round
+    order:
+      - file.name
+      - formula.Rnd0
+      - formula.Rnd2
+      - formula.Rnd4
+      - formula.Flr
+      - formula.Cl
+      - formula.Abs
+      - formula.Fixed

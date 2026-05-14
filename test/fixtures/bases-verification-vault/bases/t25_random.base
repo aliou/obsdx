@@ -1,0 +1,8 @@
+formulas:
+  Rand: 'random()'
+views:
+  - type: table
+    name: Random
+    order:
+      - file.name
+      - formula.Rand

@@ -1,0 +1,35 @@
+formulas:
+  AgeDays: (now() - date(birthday)).days
+  AgeHours: (now() - date(birthday)).hours
+  AgeMinutes: (now() - date(birthday)).minutes
+  AgeSeconds: (now() - date(birthday)).seconds
+  AgeMs: (now() - date(birthday)).milliseconds
+  AgeYears: (now() - date(birthday)).years
+  AgeMonths: (now() - date(birthday)).months
+  DaysUntilDue: (date(due) - today()).days
+  DurationParse: duration("7d").days
+  DurationWeek: duration("1w").days
+  DurationHour: duration("2h").days
+  DurationMonth: duration("1M").days
+  DurationYear: duration("1y").days
+  DurationNamed: duration("1 day").days
+views:
+  - type: table
+    name: Duration
+    order:
+      - file.name
+      - birthday
+      - formula.AgeDays
+      - formula.AgeHours
+      - formula.AgeMinutes
+      - formula.AgeSeconds
+      - formula.AgeMs
+      - formula.AgeYears
+      - formula.AgeMonths
+      - formula.DaysUntilDue
+      - formula.DurationParse
+      - formula.DurationWeek
+      - formula.DurationHour
+      - formula.DurationMonth
+      - formula.DurationYear
+      - formula.DurationNamed

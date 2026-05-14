@@ -1,0 +1,14 @@
+formulas:
+  DateAsProp: 'date'
+  DateFunc: 'date("2023-01-01")'
+  NumberAsProp: 'number'
+  NumberFunc: 'number(42)'
+views:
+  - type: table
+    name: Collision
+    order:
+      - file.name
+      - formula.DateAsProp
+      - formula.DateFunc
+      - formula.NumberAsProp
+      - formula.NumberFunc

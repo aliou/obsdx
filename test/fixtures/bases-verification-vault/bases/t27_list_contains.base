@@ -1,0 +1,11 @@
+formulas:
+  ListContains: 'tags.contains("Book")'
+  ListContainsLo: 'tags.contains("book")'
+views:
+  - type: table
+    name: ListContains
+    order:
+      - file.name
+      - tags
+      - formula.ListContains
+      - formula.ListContainsLo

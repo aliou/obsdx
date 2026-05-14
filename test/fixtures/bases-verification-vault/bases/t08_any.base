@@ -1,0 +1,24 @@
+formulas:
+  IsTruthyParen: '(1).isTruthy()'
+  IsTypeNumParen: '(42).isType("number")'
+  IsTypeStr: '"hello".isType("string")'
+  IsTypeBool: 'true.isType("boolean")'
+  IsTypeList: '[1,2].isType("list")'
+  ToStringParen: '(123).toString()'
+  ObjKeys: 'file.properties.keys()'
+  ObjValues: 'file.properties.values()'
+  ObjIsEmpty: 'file.properties.isEmpty()'
+views:
+  - type: table
+    name: Any
+    order:
+      - file.name
+      - formula.IsTruthyParen
+      - formula.IsTypeNumParen
+      - formula.IsTypeStr
+      - formula.IsTypeBool
+      - formula.IsTypeList
+      - formula.ToStringParen
+      - formula.ObjKeys
+      - formula.ObjValues
+      - formula.ObjIsEmpty

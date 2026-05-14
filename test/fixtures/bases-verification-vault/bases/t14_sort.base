@@ -1,0 +1,10 @@
+views:
+  - type: table
+    name: Sorted
+    sort:
+      - property: priority
+        direction: ASC
+    order:
+      - file.name
+      - status
+      - priority

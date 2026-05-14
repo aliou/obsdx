@@ -1,0 +1,24 @@
+formulas:
+  DateDate: 'now().date()'
+  DateFormat: 'now().format("YYYY-MM-DD")'
+  DateTime: 'now().time()'
+  DateRelative: 'file.mtime.relative()'
+  DateIsEmpty: 'now().isEmpty()'
+  DateHour: 'now().hour'
+  DateMinute: 'now().minute'
+  DateSecond: 'now().second'
+  DateMilli: 'now().millisecond'
+views:
+  - type: table
+    name: Date
+    order:
+      - file.name
+      - formula.DateDate
+      - formula.DateFormat
+      - formula.DateTime
+      - formula.DateRelative
+      - formula.DateIsEmpty
+      - formula.DateHour
+      - formula.DateMinute
+      - formula.DateSecond
+      - formula.DateMilli

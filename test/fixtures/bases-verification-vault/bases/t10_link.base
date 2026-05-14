@@ -1,0 +1,16 @@
+formulas:
+  LinkBasic: 'link("Alpha")'
+  LinkDisplay: 'link("Alpha", "Go to Alpha")'
+  AsLink: 'file.asLink()'
+  AsFile: 'link("[[Alpha]]").asFile()'
+  LinksTo: 'link("[[Alpha]]").linksTo(file)'
+views:
+  - type: table
+    name: Link
+    order:
+      - file.name
+      - formula.LinkBasic
+      - formula.LinkDisplay
+      - formula.AsLink
+      - formula.AsFile
+      - formula.LinksTo

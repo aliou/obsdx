@@ -1,0 +1,18 @@
+formulas:
+  Jan31Plus1M: 'date("2024-01-31") + "1M"'
+  Feb29Plus1M: 'date("2024-02-29") + "1M"'
+  Mar31Plus1w: 'date("2024-03-31") + "1w"'
+  Dec31Plus2M: 'date("2024-12-31") + "2M"'
+  M1Days: 'duration("1M").days'
+  Y1Days: 'duration("1y").days'
+views:
+  - type: table
+    name: Calendar
+    order:
+      - file.name
+      - formula.Jan31Plus1M
+      - formula.Feb29Plus1M
+      - formula.Mar31Plus1w
+      - formula.Dec31Plus2M
+      - formula.M1Days
+      - formula.Y1Days

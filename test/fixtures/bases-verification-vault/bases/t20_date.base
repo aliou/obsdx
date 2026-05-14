@@ -1,0 +1,32 @@
+formulas:
+  DateDate: 'now().date()'
+  DateFormat: 'now().format("YYYY-MM-DD")'
+  DateTime: 'now().time()'
+  DateRelative: 'file.mtime.relative()'
+  DateIsEmpty: 'now().isEmpty()'
+  DateHour: 'now().hour'
+  DateMinute: 'now().minute'
+  DateSecond: 'now().second'
+  DateMilli: 'now().millisecond'
+  DateYear: 'date("2023-09-12").year'
+  DateMonth: 'date("2023-09-12").month'
+  DateDay: 'date("2023-09-12").day'
+  FormatLong: 'date("2023-09-12 14:30:05").format("YYYY/MM/DD")'
+views:
+  - type: table
+    name: Date
+    order:
+      - file.name
+      - formula.DateDate
+      - formula.DateFormat
+      - formula.DateTime
+      - formula.DateRelative
+      - formula.DateIsEmpty
+      - formula.DateHour
+      - formula.DateMinute
+      - formula.DateSecond
+      - formula.DateMilli
+      - formula.DateYear
+      - formula.DateMonth
+      - formula.DateDay
+      - formula.FormatLong

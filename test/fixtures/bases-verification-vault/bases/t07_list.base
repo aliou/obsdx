@@ -1,0 +1,36 @@
+formulas:
+  Filter: '[1, 2, 3, 4].filter(value > 2)'
+  Map: '[1, 2, 3].map(value + 1)'
+  Reduce: '[1, 2, 3].reduce(acc + value, 0)'
+  Flat: '[[1, [2, 3]], 4].flat()'
+  Reverse: '[1, 2, 3].reverse()'
+  Slice: '[1, 2, 3, 4].slice(1, 3)'
+  Sort: '[3, 1, 2].sort()'
+  Unique: '[1, 2, 2, 3].unique()'
+  Join: '[1, 2, 3].join(", ")'
+  Len: '[1, 2, 3].length'
+  Contains: '[1, 2, 3].contains(2)'
+  ContainsAll: '[1, 2, 3].containsAll(2, 3)'
+  ContainsAny: '[1, 2, 3].containsAny(3, 4)'
+  TagsFilter: 'tags.filter(value != "fiction")'
+  TagsJoin: 'tags.join(" | ")'
+views:
+  - type: table
+    name: List
+    order:
+      - file.name
+      - formula.Filter
+      - formula.Map
+      - formula.Reduce
+      - formula.Flat
+      - formula.Reverse
+      - formula.Slice
+      - formula.Sort
+      - formula.Unique
+      - formula.Join
+      - formula.Len
+      - formula.Contains
+      - formula.ContainsAll
+      - formula.ContainsAny
+      - formula.TagsFilter
+      - formula.TagsJoin

@@ -1,0 +1,23 @@
+{
+  "name": "@aliou/obsdx-base-ast",
+  "version": "0.0.1",
+  "description": "Obsidian Base syntax parsing for obsdx",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "yaml": "^2.7.0"
+  }
+}

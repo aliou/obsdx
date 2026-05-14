@@ -1,0 +1,10 @@
+filters:
+  and:
+    - file.inFolder("Notes")
+views:
+  - type: table
+    name: InFolder
+    order:
+      - file.name
+      - file.folder
+      - file.path

@@ -1,0 +1,14 @@
+formulas:
+  IsTruthyParen: '(1).isTruthy()'
+  IsTypeNumParen: '(42).isType("number")'
+  ToStringParen: '(123).toString()'
+  RoundParen: '(2.3333).round(2)'
+views:
+  - type: table
+    name: Paren
+    order:
+      - file.name
+      - formula.IsTruthyParen
+      - formula.IsTypeNumParen
+      - formula.ToStringParen
+      - formula.RoundParen

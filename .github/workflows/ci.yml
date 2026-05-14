@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+      - "obsdx@*"
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Test
+        run: pnpm run test
+
+      - name: Verify binaries
+        run: |
+          set -euo pipefail
+          for binary in packages/cli/dist/obsdx-*; do
+            if [ ! -f "$binary" ]; then
+              echo "ERROR: No obsdx-* binaries found"
+              exit 1
+            fi
+            if [ ! -x "$binary" ]; then
+              echo "ERROR: $binary is not executable"
+              exit 1
+            fi
+          done
