@@ -1,3 +1,6 @@
+filters:
+  and:
+    - file.name == "Tagged"
 formulas:
   Filter: '[1, 2, 3, 4].filter(value > 2)'
   Map: '[1, 2, 3].map(value + 1)'

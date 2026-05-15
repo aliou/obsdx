@@ -19,7 +19,7 @@ import {
   stddevNumbers,
   sumNumbers,
 } from "./math";
-import type { BaseQueryResult } from "./result";
+import type { BaseQueryMeta, BaseQueryResult, BaseQueryRow } from "./result";
 
 export type BaseFileInspection = {
   file: {
@@ -35,7 +35,11 @@ export type BaseFileInspection = {
     indexedAt?: string;
     parseError?: string | null;
   };
-  properties: Array<{ name: string; value: unknown }>;
+  properties: Array<{
+    name: string;
+    value: unknown;
+    valueType?: string | null;
+  }>;
   tags: Array<{ tag: string }>;
   links: Array<{ resolvedPath?: string | null; targetText?: string | null }>;
   backlinks: unknown[];
@@ -132,13 +136,15 @@ export function queryBase(
   rows.sort((left, right) => compareRows(left, right, view?.sort, columns));
   const limitedRows =
     view?.limit && view.limit > 0 ? rows.slice(0, view.limit) : rows;
+  const resolvedColumns = resolveColumnTypes(columns, limitedRows, inspections);
 
   return {
     base: base.path,
     view: view?.name,
     context: options.context,
-    columns,
-    rows: limitedRows,
+    meta: buildMeta(view),
+    columns: resolvedColumns,
+    rows: limitedRows.map((row) => projectRow(row, resolvedColumns)),
     groups: buildGroups(limitedRows, view),
     summaries: buildSummaries(limitedRows, view, base),
   };
@@ -321,7 +327,141 @@ function findPropertyConfig(
 }
 
 function valueType(_property: BasePropertyConfig | undefined): string {
-  return "unknown";
+  return "any";
+}
+
+function buildMeta(view: BaseView | undefined): BaseQueryMeta {
+  return {
+    type: view?.type,
+    name: view?.name,
+    filters: view?.filters,
+    order: view?.order ?? [],
+    sort: view?.sort,
+    limit: view?.limit,
+    groupBy: view?.groupBy,
+    summaries: view?.summaries,
+  };
+}
+
+function projectRow(row: BaseRow, columns: BaseColumn[]): BaseQueryRow {
+  const data = Object.fromEntries(
+    columns.map((column) => [
+      column.id,
+      Object.hasOwn(row.values, column.id) ? row.values[column.id] : null,
+    ]),
+  );
+  const file = {
+    path: row.file.path,
+    name: row.file.name,
+  };
+  Object.defineProperties(file, {
+    basename: { value: row.file.basename, enumerable: false },
+    ext: { value: row.file.ext, enumerable: false },
+    folder: { value: row.file.folder, enumerable: false },
+    size: { value: row.file.size, enumerable: false },
+    ctime: { value: row.file.ctime, enumerable: false },
+    mtime: { value: row.file.mtime, enumerable: false },
+  });
+
+  const projected = {
+    file,
+    data,
+  };
+
+  Object.defineProperties(projected, {
+    values: { value: row.values, enumerable: false },
+    formulas: { value: row.formulas, enumerable: false },
+    sortValues: { value: row.sortValues, enumerable: false },
+  });
+
+  return projected;
+}
+
+function resolveColumnTypes(
+  columns: BaseColumn[],
+  rows: BaseRow[],
+  inspections: BaseFileInspection[],
+): BaseColumn[] {
+  return columns.map((column) => ({
+    ...column,
+    type: resolveColumnType(column.id, rows, inspections),
+  }));
+}
+
+function resolveColumnType(
+  id: string,
+  rows: BaseRow[],
+  inspections: BaseFileInspection[],
+): string {
+  const propertyName = id.replace(/^note\./u, "");
+  for (const inspection of inspections) {
+    const property = inspection.properties.find(
+      (candidate) => candidate.name === propertyName,
+    );
+    if (property?.valueType) {
+      return normalizeColumnType(property.valueType);
+    }
+  }
+
+  if (
+    id === "file.name" ||
+    id === "file.basename" ||
+    id === "file.path" ||
+    id === "file.folder" ||
+    id === "file.ext"
+  ) {
+    return "text";
+  }
+  if (id === "file.size") {
+    return "number";
+  }
+  if (id === "file.ctime" || id === "file.mtime") {
+    return "datetime";
+  }
+
+  for (const row of rows) {
+    const value = row.values[id];
+    if (value !== null && value !== undefined) {
+      return inferColumnType(value);
+    }
+  }
+
+  return "empty";
+}
+
+function normalizeColumnType(type: string): string {
+  if (type === "checkbox") return "boolean";
+  if (type === "multitext" || type === "aliases" || type === "tags")
+    return "list";
+  if (type === "string") return "text";
+  return type;
+}
+
+function inferColumnType(value: unknown): string {
+  if (value instanceof Date) {
+    return isMidnight(value) ? "date" : "datetime";
+  }
+  if (Array.isArray(value)) return "list";
+  if (value instanceof Error) return "error";
+  if (typeof value === "string") {
+    if (/^\d{4}-\d{2}-\d{2}$/u.test(value)) return "date";
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/u.test(value)) return "datetime";
+    if (/^\[\[.*\]\]$/u.test(value)) return "link";
+    return "text";
+  }
+  if (typeof value === "number") return "number";
+  if (typeof value === "boolean") return "boolean";
+  if (value && typeof value === "object") return "object";
+  return "empty";
+}
+
+function isMidnight(date: Date): boolean {
+  return (
+    date.getHours() === 0 &&
+    date.getMinutes() === 0 &&
+    date.getSeconds() === 0 &&
+    date.getMilliseconds() === 0
+  );
 }
 
 function compareRows(

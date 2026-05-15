@@ -1,0 +1,20 @@
+filters:
+  and:
+    - file.name == "Tagged"
+formulas:
+  BareTags: tags
+  FileTags: file.tags
+  ContainsBook: tags.contains("Book")
+  FileContainsBook: file.tags.contains("Book")
+  HasTag: file.hasTag("book")
+views:
+  - type: table
+    name: Tags
+    order:
+      - file.name
+      - tags
+      - formula.BareTags
+      - formula.FileTags
+      - formula.ContainsBook
+      - formula.FileContainsBook
+      - formula.HasTag

@@ -52,110 +52,237 @@ function getObsidianValue(row, name) {
   return row[name];
 }
 
-function obsdxColumnAliases(name) {
-  const aliases = {
-    "file base name": ["file.basename"],
-    extension: ["file.ext"],
-    path: ["file.path"],
-    folder: ["file.folder"],
-  };
-  return aliases[name] ?? [];
+function getObsdxColumn(result, name) {
+  const columns = Array.isArray(result?.columns) ? result.columns : [];
+  const ids = obsdxIdsForObsidianKey(name);
+  return columns.find(
+    (candidate) =>
+      candidate.displayName === name ||
+      ids.includes(candidate.id) ||
+      candidate.id === name ||
+      candidate.id === `formula.${name}`,
+  );
 }
 
 function getObsdxValue(result, row, name) {
-  if (!row) return undefined;
+  if (!row || typeof row !== "object") return undefined;
 
-  const aliases = obsdxColumnAliases(name);
-  const columns = Array.isArray(result?.columns) ? result.columns : [];
-  const column = columns.find(
-    (candidate) =>
-      candidate.displayName === name ||
-      candidate.id === name ||
-      candidate.id === `formula.${name}` ||
-      aliases.includes(candidate.id),
-  );
+  const column = getObsdxColumn(result, name);
+  if (name === "path") return row.file?.path;
+  if (name === "name") return row.file?.name;
 
+  const data = row.data && typeof row.data === "object" ? row.data : row;
   if (column) {
-    return (
-      row.values?.[column.id] ??
-      row.formulas?.[name] ??
-      row.formulas?.[column.id?.replace(/^formula\./, "")]
+    return data[column.id];
+  }
+
+  for (const id of obsdxIdsForObsidianKey(name)) {
+    if (Object.hasOwn(data, id)) return data[id];
+  }
+
+  return data[name] ?? data[`formula.${name}`];
+}
+
+function obsdxIdsForObsidianKey(name) {
+  const ids = {
+    path: ["file.path"],
+    name: ["file.name"],
+    folder: ["file.folder"],
+    extension: ["file.ext"],
+    "file base name": ["file.basename"],
+  };
+  return ids[name] ?? [];
+}
+
+function coerceObsidianValue(value, column, obsdxValue) {
+  if (value === null || value === undefined) return value;
+
+  if (isPlainObject(obsdxValue) && typeof obsdxValue.error === "string") {
+    if (typeof value === "string" && value.startsWith("Error: ")) {
+      return { error: value.slice("Error: ".length) };
+    }
+    return value;
+  }
+
+  if (Array.isArray(obsdxValue) && typeof value === "string") {
+    if (value === "") return [];
+    const items = value.split(/,\s*/u);
+    return items.map((item, index) =>
+      coerceScalar(item, inferValueType(obsdxValue[index])),
     );
   }
 
-  return (
-    row.formulas?.[name] ??
-    row.values?.[`formula.${name}`] ??
-    row.values?.[name]
-  );
+  return coerceScalar(value, column?.type ?? inferValueType(obsdxValue));
 }
 
-function renderComparable(value) {
-  if (value === null || value === undefined) return "";
-  if (Array.isArray(value)) return value.map(renderComparable).join(", ");
-  if (typeof value === "object") {
-    if (typeof value.error === "string") return `Error: ${value.error}`;
-    if (typeof value.markdown === "string") return value.markdown;
-    if (typeof value.path === "string") return value.path;
-    if (typeof value.label === "string") return value.label;
+function coerceScalar(value, type) {
+  if (typeof value !== "string") return value;
+
+  if (type === "number") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : value;
   }
-  return String(value);
+
+  if (type === "boolean") {
+    if (value === "true") return true;
+    if (value === "false") return false;
+    return value;
+  }
+
+  return value;
+}
+
+function inferValueType(value) {
+  if (Array.isArray(value)) return "list";
+  if (value === null || value === undefined) return undefined;
+  if (isPlainObject(value) && typeof value.error === "string") return "error";
+  return typeof value;
 }
 
 function equivalentValue(name, obsVal, obsdxVal) {
-  if (obsVal === obsdxVal) return true;
+  if (Object.is(obsVal, obsdxVal)) return true;
 
   // These formulas are intentionally nondeterministic because Obsidian CLI and
   // obsdx run in separate processes at different times.
   if (/random|rand/i.test(name)) return true;
   if (/relative/i.test(name)) return true;
 
-  const obsNumber = Number(obsVal);
-  const obsdxNumber = Number(obsdxVal);
-  if (Number.isFinite(obsNumber) && Number.isFinite(obsdxNumber)) {
+  if (Array.isArray(obsVal) || Array.isArray(obsdxVal)) {
+    return (
+      Array.isArray(obsVal) &&
+      Array.isArray(obsdxVal) &&
+      obsVal.length === obsdxVal.length &&
+      obsVal.every((item, index) =>
+        equivalentValue(`${name}[${index}]`, item, obsdxVal[index]),
+      )
+    );
+  }
+
+  if (isPlainObject(obsVal) || isPlainObject(obsdxVal)) {
+    return equivalentObject(name, obsVal, obsdxVal);
+  }
+
+  const obsNumber = typeof obsVal === "number" ? obsVal : null;
+  const obsdxNumber = typeof obsdxVal === "number" ? obsdxVal : null;
+  if (obsNumber !== null && obsdxNumber !== null) {
     const diff = Math.abs(obsNumber - obsdxNumber);
-    if (/millisecond|milliseconds|ms$/i.test(name)) return diff <= 1000;
+    if (/milli|millisecond|milliseconds|ms$/i.test(name)) return diff <= 1000;
+    if (/date|now|time/i.test(name)) return diff <= 1000;
     if (/second|seconds/i.test(name)) return diff <= 1;
     if (/minute|minutes/i.test(name)) return diff <= 1 / 60;
     if (/hour|hours|diff/i.test(name)) return diff <= 1 / 3600;
     if (/year|years|month|months/i.test(name)) return diff <= 0.001;
     if (/day|days/i.test(name)) return diff <= 1 / 86_400;
-    if (/date|now|time/i.test(name)) return diff <= 1000;
+    return false;
   }
 
-  const obsDate = parseDateTime(obsVal);
-  const obsdxDate = parseDateTime(obsdxVal);
-  if (obsDate && obsdxDate) {
-    return Math.abs(obsDate.valueOf() - obsdxDate.valueOf()) <= 2000;
+  const obsDate = parseTemporal(obsVal);
+  const obsdxDate = parseTemporal(obsdxVal);
+  if (obsDate || obsdxDate) {
+    return (
+      obsDate &&
+      obsdxDate &&
+      obsDate.kind === obsdxDate.kind &&
+      Math.abs(obsDate.date.valueOf() - obsdxDate.date.valueOf()) <= 2000
+    );
   }
 
   return false;
 }
 
-function parseDateTime(value) {
-  const timeMatch = String(value).match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
+function equivalentObject(name, obsVal, obsdxVal) {
+  if (!isPlainObject(obsVal) || !isPlainObject(obsdxVal)) return false;
+  const obsKeys = Object.keys(obsVal).sort();
+  const obsdxKeys = Object.keys(obsdxVal).sort();
+  if (!equivalentValue(`${name}.keys`, obsKeys, obsdxKeys)) return false;
+  return obsKeys.every((key) =>
+    equivalentValue(`${name}.${key}`, obsVal[key], obsdxVal[key]),
+  );
+}
+
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function parseTemporal(value) {
+  if (typeof value !== "string") return null;
+
+  const timeMatch = value.match(/^(\d{2}):(\d{2})(?::(\d{2}))?$/);
   if (timeMatch) {
-    return new Date(
-      2000,
-      0,
-      1,
-      Number(timeMatch[1]),
-      Number(timeMatch[2]),
-      Number(timeMatch[3] ?? 0),
-    );
+    return {
+      kind: "time",
+      date: new Date(
+        2000,
+        0,
+        1,
+        Number(timeMatch[1]),
+        Number(timeMatch[2]),
+        Number(timeMatch[3] ?? 0),
+      ),
+    };
   }
 
-  const match = String(value).match(
-    /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?$/,
+  const dateMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateMatch) {
+    return {
+      kind: "date",
+      date: new Date(
+        Number(dateMatch[1]),
+        Number(dateMatch[2]) - 1,
+        Number(dateMatch[3]),
+      ),
+    };
+  }
+
+  const dateTimeMatch = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/,
   );
-  if (!match) return null;
-  return new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-    Number(match[4] ?? 0),
-    Number(match[5] ?? 0),
-    Number(match[6] ?? 0),
+  if (!dateTimeMatch) return null;
+  return {
+    kind: "datetime",
+    date: new Date(
+      Number(dateTimeMatch[1]),
+      Number(dateTimeMatch[2]) - 1,
+      Number(dateTimeMatch[3]),
+      Number(dateTimeMatch[4]),
+      Number(dateTimeMatch[5]),
+      Number(dateTimeMatch[6] ?? 0),
+    ),
+  };
+}
+
+function formatIssueValue(value) {
+  return JSON.stringify(value);
+}
+
+function compareIfPresent(result, label, obsValue, obsdxValue) {
+  if (obsValue === undefined || obsdxValue === undefined) return;
+  if (!equivalentValue(label, obsValue, obsdxValue)) {
+    result.issues.push(
+      `${label}: obs=${formatIssueValue(obsValue)} obsdx=${formatIssueValue(obsdxValue)}`,
+    );
+  }
+}
+
+function findComparableRow(rows) {
+  return (
+    rows.find((row) => {
+      if (!row || typeof row !== "object") return false;
+      const data = row.data && typeof row.data === "object" ? row.data : row;
+      if (row.file?.name === "Alpha") return true;
+      if (row.name === "Alpha") return true;
+      if (data["file.name"] === "Alpha") return true;
+      if (data["file.basename"] === "Alpha") return true;
+      if (typeof row.file?.path === "string") {
+        return path.basename(row.file.path, ".md") === "Alpha";
+      }
+      if (typeof row.path === "string")
+        return path.basename(row.path, ".md") === "Alpha";
+      if (typeof data["file.path"] === "string") {
+        return path.basename(data["file.path"], ".md") === "Alpha";
+      }
+      return false;
+    }) ?? rows[0]
   );
 }
 
@@ -182,31 +309,28 @@ function check(id, description) {
   if (obs.raw) result.issues.push("obs parse error: non-JSON output");
   if (obsdx.raw) result.issues.push("obsdx parse error: non-JSON output");
 
-  // Compare displayed Obsidian columns against obsdx row values/formulas for Alpha.
-  if (Array.isArray(obs) && obsdx?.rows?.length > 0) {
-    const obsAlpha = obs.find((r) => r.name === "Alpha");
-    const obsdxAlpha = obsdx.rows.find((r) => {
-      if (r.file?.basename === "Alpha") return true;
-      if (typeof r.file === "string")
-        return path.basename(r.file, ".md") === "Alpha";
-      return false;
-    });
+  compareIfPresent(result, "columns", obs.columns, obsdx?.columns);
+  compareIfPresent(result, "meta", obs.meta, obsdx?.meta);
 
-    if (obsAlpha && obsdxAlpha) {
-      const columnNames = Object.keys(obsAlpha).filter(
-        (k) => k !== "path" && k !== "name",
-      );
-      for (const name of columnNames) {
-        const obsVal = renderComparable(getObsidianValue(obsAlpha, name));
-        const obsdxVal = renderComparable(
-          getObsdxValue(obsdx, obsdxAlpha, name),
-        );
-        if (!equivalentValue(name, obsVal, obsdxVal)) {
-          result.issues.push(`${name}: obs="${obsVal}" obsdx="${obsdxVal}"`);
+  // Compare displayed Obsidian row fields against obsdx row values.
+  if (Array.isArray(obs) && obsdx?.rows?.length > 0) {
+    const obsRow = findComparableRow(obs);
+    const obsdxRow = findComparableRow(obsdx.rows);
+
+    if (obsRow && obsdxRow) {
+      for (const name of Object.keys(obsRow)) {
+        const column = getObsdxColumn(obsdx, name);
+        const obsVal = getObsidianValue(obsRow, name);
+        const obsdxVal = getObsdxValue(obsdx, obsdxRow, name);
+        const comparableObsVal = coerceObsidianValue(obsVal, column, obsdxVal);
+        if (!equivalentValue(name, comparableObsVal, obsdxVal)) {
+          result.issues.push(
+            `${name}: obs=${formatIssueValue(obsVal)} comparableObs=${formatIssueValue(comparableObsVal)} obsdx=${formatIssueValue(obsdxVal)}`,
+          );
         }
       }
     } else {
-      result.issues.push("Missing Alpha row in one output");
+      result.issues.push("Missing comparable row in one output");
     }
   }
 
@@ -265,6 +389,7 @@ check("t28_calendar", "Date + duration fixed-day conversion");
 check("t28b_days", "Duration unit-to-day conversion values");
 check("t29_dur_named", "Duration named forms");
 check("t30_folder", "file.inFolder() filter");
+check("t31_tags", "Tags property and file tags");
 
 // Summary
 console.log("\n\n========== SUMMARY ==========");

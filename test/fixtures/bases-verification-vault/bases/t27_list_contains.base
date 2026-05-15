@@ -1,3 +1,6 @@
+filters:
+  and:
+    - file.name == "Tagged"
 formulas:
   ListContains: 'tags.contains("Book")'
   ListContainsLo: 'tags.contains("book")'

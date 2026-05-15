@@ -134,6 +134,14 @@ export function query(
 
 /** Extract formula value from first row. */
 export function f(result: { rows: unknown[] }, name: string): unknown {
-  const row = result.rows[0] as Record<string, unknown>;
-  return (row?.formulas as Record<string, unknown>)?.[name];
+  const row = result.rows[0] as
+    | { data?: Record<string, unknown> }
+    | Record<string, unknown>
+    | undefined;
+  if (!row) return undefined;
+  const data = "data" in row && row.data ? row.data : row;
+  const formulaKey = `formula.${name}`;
+  if (Object.hasOwn(data, formulaKey)) return data[formulaKey];
+  if (Object.hasOwn(data, name)) return data[name];
+  return undefined;
 }

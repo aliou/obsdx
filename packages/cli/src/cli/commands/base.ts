@@ -203,7 +203,7 @@ function serializeBaseOutput(value: unknown): unknown {
 
   if (isRecord(value)) {
     if (typeof value.markdown === "string") return value.markdown;
-    if (typeof value.path === "string") return value.path;
+    if (typeof value.path === "string" && !("name" in value)) return value.path;
     if (
       isRecord(value.file) &&
       typeof value.file.path === "string" &&
