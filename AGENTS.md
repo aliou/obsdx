@@ -4,6 +4,8 @@
 
 `obsdx` is a headless Obsidian vault intelligence CLI. It reads vault files directly, keeps a vault-local SQLite cache under `.obsidian/obsdx/`, and emits deterministic human or JSON output.
 
+This is a personal tool for the user. There are no any other external users to support, so do not spend time preserving backward compatibility unless it clearly benefits current development.
+
 ## Package Layout
 
 ### `packages/cli` — `@aliou/obsdx-cli`
@@ -111,6 +113,7 @@ All errors use `ObsdxError` with a machine-readable `code` (e.g. `FILE_NOT_FOUND
 - File locking uses `index.lock` with configurable timeout (`--lock-timeout`, default 30s). Stale locks from dead processes are auto-cleaned.
 - `--no-cache` bypasses the SQLite cache and scans the vault directly.
 - `--refresh` and `--rebuild-cache` force cache operations before the command runs.
+- When changing the database schema or cache format, prefer a simple migration when practical. If migration is awkward, it is acceptable to delete the cache and re-index because the cache is rebuildable.
 
 ## Development Environment
 
