@@ -157,7 +157,41 @@ All commands share the same `--json` / `--pretty` / `--ndjson` conventions. Belo
 
 ### query
 
-Row shape depends on the base definition. Each row has at least `file.path`.
+```json
+{
+  "base": "tasks.base",
+  "view": "Default",
+  "context": "current.md",
+  "meta": {
+    "type": "table",
+    "name": "Default",
+    "order": ["file.name", "status", "formula.Score"],
+    "sort": [{ "property": "status", "direction": "ASC" }],
+    "limit": 20,
+    "groupBy": { "property": "status", "direction": "ASC" },
+    "summaries": { "status": "Count" }
+  },
+  "columns": [
+    { "id": "file.name", "displayName": "name", "type": "text" },
+    { "id": "status", "displayName": "status", "type": "text" },
+    { "id": "formula.Score", "displayName": "Score", "type": "number" }
+  ],
+  "rows": [
+    {
+      "file": { "path": "tasks/todo.md", "name": "todo" },
+      "data": {
+        "file.name": "todo",
+        "status": "active",
+        "formula.Score": 10
+      }
+    }
+  ],
+  "groups": [],
+  "summaries": { "count": 1 }
+}
+```
+
+`rows[].file` is row identity. `rows[].data` is keyed by column id and preserves typed values.
 
 ## graph
 

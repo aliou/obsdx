@@ -35,7 +35,7 @@ Base evaluation and query execution. Owns:
 - Expression evaluation against a pluggable `EvaluationContext`.
 - `queryBase` entry point accepting a Base definition, view name, and context file.
 - Date/time, duration, string, number, link, and global function support.
-- Accuracy tests mirroring Obsidian's own Base test suite.
+- Accuracy tests verified against Obsidian CLI Base behavior using local fixture vaults.
 
 ## CLI Commands
 
