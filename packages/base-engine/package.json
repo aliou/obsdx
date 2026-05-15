@@ -1,6 +1,6 @@
 {
   "name": "@aliou/obsdx-base-engine",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Obsidian Base query execution for obsdx",
   "type": "module",
   "exports": {
