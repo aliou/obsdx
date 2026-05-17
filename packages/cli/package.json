@@ -2,6 +2,7 @@
   "name": "@aliou/obsdx-cli",
   "version": "0.0.5",
   "description": "Headless Obsidian vault intelligence CLI",
+  "private": true,
   "type": "module",
   "bin": {
     "obsdx": "./dist/main.mjs"

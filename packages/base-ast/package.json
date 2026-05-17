@@ -2,6 +2,7 @@
   "name": "@aliou/obsdx-base-ast",
   "version": "0.0.5",
   "description": "Obsidian Base syntax parsing for obsdx",
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": {
@@ -10,8 +11,21 @@
     }
   },
   "files": [
-    "dist"
+    "dist/index.d.mts",
+    "dist/index.mjs",
+    "dist/index.mjs.map"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aliou/obsdx",
+    "directory": "packages/base-ast"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=25.7.0"
+  },
   "scripts": {
     "build": "tsdown",
     "check": "tsc -p tsconfig.json --noEmit",

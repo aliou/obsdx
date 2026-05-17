@@ -1,0 +1,88 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish packages
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 25
+          registry-url: https://registry.npmjs.org
+          scope: "@aliou"
+          cache: pnpm
+
+      - name: Upgrade npm for OIDC support
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build publishable packages
+        run: pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine run build
+
+      - name: Get release info
+        id: release-info
+        run: |
+          pnpm changeset status --output=release.json 2>/dev/null || echo '{"releases":[]}' > release.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const release = JSON.parse(fs.readFileSync('release.json', 'utf8'));
+          const releases = release.releases?.filter((release) => release.type !== 'none') || [];
+
+          let title = 'Updating obsdx packages';
+          let commit = title;
+          if (releases.length === 1) {
+            const { name, newVersion } = releases[0];
+            title = `Updating ${name} to version ${newVersion}`;
+            commit = `${name}@${newVersion}`;
+          } else if (releases.length > 1) {
+            const summary = releases.map((release) => `${release.name}@${release.newVersion}`).join(', ');
+            title = `Updating ${summary}`;
+            commit = summary;
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `title=${title}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `commit=${commit}\n`);
+          NODE
+          rm -f release.json
+        continue-on-error: true
+
+      - name: Create Release PR or publish
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: pnpm changeset version
+          publish: pnpm publish:packages
+          title: ${{ steps.release-info.outputs.title || 'Updating obsdx packages' }}
+          commit: ${{ steps.release-info.outputs.commit || 'Updating obsdx packages' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: true

@@ -11,11 +11,16 @@
     "test": "turbo run test",
     "lint": "biome check",
     "format": "biome check --write",
-    "bump": "tsx scripts/bump.ts"
+    "bump": "tsx scripts/bump.ts",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "publish:packages": "pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine publish -r --access public --no-git-checks",
+    "release": "pnpm publish:packages"
   },
   "devDependencies": {
     "@aliou/biome-plugins": "^0.8.1",
     "@biomejs/biome": "^2.4.15",
+    "@changesets/cli": "^2.31.0",
     "@tsdown/exe": "0.22.0",
     "@types/node": "^25.0.0",
     "lefthook": "^2.1.6",
