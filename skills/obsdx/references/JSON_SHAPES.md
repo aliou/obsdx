@@ -191,7 +191,7 @@ All commands share the same `--json` / `--pretty` / `--ndjson` conventions. Belo
 }
 ```
 
-`rows[].file` is row identity. `rows[].data` is keyed by column id and preserves typed values.
+`context` is the active file path used when formulas or filters reference the `this` keyword. `rows[].file` is row identity. `rows[].data` is keyed by column id and preserves typed values.
 
 ## graph
 

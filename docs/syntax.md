@@ -235,15 +235,15 @@ For example, a filter `file.ext == "md"` will be true for all Markdown files and
 | `file.size` | Number | File size |
 | `file.tags` | List | List of all tags in the file content and frontmatter |
 
-### Access properties with this
+### Access properties with `this`
 
-Use the `this` object to access file properties. What `this` refers to, will depend on where the base is displayed.
+Use the `this` keyword in formulas and filters when they need to be evaluated in the context of the current Base. What `this` refers to depends on where the Base is displayed.
 
-When the base is opened in main content area, `this` points to properties of the base file itself. For example, using `this.file.folder` returns the folder path where the base is located.
+When the Base is opened in the main content area, `this` points to the Base file itself. For example, `this.file.folder` returns the folder path where the Base is located.
 
-When the base is embedded in another file, `this` points to properties of the *embedding* file (the note or Canvas that contains the base). For example, using `this.file.name` returns the name of the embedding file, not the base.
+When the Base is embedded in another file, `this` points to the embedding file, meaning the note or Canvas that contains the Base. For example, `this.file.name` returns the name of the embedding file, not the Base.
 
-When the base is in a sidebar, `this` refers to the active file in the main content area. This lets you create queries based on the active file. For example, you can use `file.hasLink(this.file)` to replicate the backlinks pane.
+When the Base is in the sidebar, `this` points to the currently active file in the main content area. This lets you create queries based on the active file. For example, `file.hasLink(this.file)` can replicate the backlinks pane.
 
 ## Operators
 
@@ -352,6 +352,6 @@ A File object can be turned into a link using `file.asLink()` with an optional d
 
 Links can be compared with `==` and `!=`. They are equivalent as long as they point to the same file, or if the file does not exist when looked up, their link text must be identical.
 
-Links can be compared to files such as `file` or `this`. They will equate if the link resolves to the file. For example, `author == this`.
+Links can be compared to files such as `file` or `this`. They are equal if the link resolves to the file. For example, `author == this`.
 
-Links can also be checked in list contains, for example, `authors.contains(this)`.
+Links can also be checked with list contains, for example, `authors.contains(this)`.

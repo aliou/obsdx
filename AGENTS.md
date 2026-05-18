@@ -33,7 +33,7 @@ The main CLI binary. Owns:
 
 Base evaluation and query execution. Owns:
 - Expression evaluation against a pluggable `EvaluationContext`.
-- `queryBase` entry point accepting a Base definition, view name, and context file.
+- `queryBase` entry point accepting a Base definition, view name, and optional active file path used for the `this` keyword.
 - Date/time, duration, string, number, link, and global function support.
 - Accuracy tests verified against Obsidian CLI Base behavior using local fixture vaults.
 
@@ -69,7 +69,7 @@ All commands accept global flags: `--vault`, `--json`, `--pretty`, `--ndjson`, `
 | `base inspect <path>` | — | Inspect a base file's views |
 | `base validate <path>` | — | Validate a base file |
 | `base views <path>` | — | List view names in a base |
-| `base query <path>` | `--view`, `--context` | Execute a base query |
+| `base query <path>` | `--view`, `--context` | Execute a base query; `--context` supplies the active file for `this` |
 | `base render-embed <path>` | — | Render Base embeds in a markdown file |
 | `graph export` | — | Export all graph nodes and edges |
 | `graph neighborhood <path>` | `--depth`, `--direction` | Subgraph around a path |

@@ -109,7 +109,7 @@ obsdx base list                   # List .base files
 obsdx base inspect <path>         # Inspect a base's views
 obsdx base validate <path>        # Validate a base file
 obsdx base views <path>           # List view names
-obsdx base query <path> [--view V] [--context C]  # Execute a base query
+obsdx base query <path> [--view V] [--context C]  # Execute a base query; --context is the active file for `this`
 obsdx base render-embed <path>    # Render Base embeds in a markdown file
 ```
 
