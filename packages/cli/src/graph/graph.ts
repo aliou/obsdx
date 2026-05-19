@@ -1,12 +1,5 @@
 import type { GraphEdge, GraphNode, VaultGraph } from "@aliou/obsdx-index";
 
-export type {
-  GraphEdge,
-  GraphEdgeKind,
-  GraphNode,
-  VaultGraph,
-} from "@aliou/obsdx-index";
-
 export type GraphDirection = "incoming" | "outgoing" | "both";
 
 export function graphNeighborhood(

@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { GraphEdge, VaultGraph } from "../graph/graph";
+import type { GraphEdge, VaultGraph } from "@aliou/obsdx-index";
 import type { CanvasDocument, CanvasNode } from "./parser";
 
 export function canvasGraph(

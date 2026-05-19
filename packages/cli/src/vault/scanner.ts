@@ -3,8 +3,6 @@ import path from "node:path";
 import type { ScannedVaultFile, VaultFileKind } from "@aliou/obsdx-index";
 import fg from "fast-glob";
 
-export type { ScannedVaultFile, VaultFileKind } from "@aliou/obsdx-index";
-
 export async function scanVaultFiles(
   vaultRoot: string,
 ): Promise<ScannedVaultFile[]> {

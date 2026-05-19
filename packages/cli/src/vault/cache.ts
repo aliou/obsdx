@@ -90,28 +90,6 @@ export type CacheMetadata = {
   parserVersion: string;
 };
 
-export {
-  buildTagTree,
-  type CachedBase,
-  type CachedBlock,
-  type CachedHeading,
-  type CachedLink,
-  type CachedMarkdown,
-  type CachedProperty,
-  type CachedTag,
-  type CachedVaultFile,
-  type CacheStatus,
-  type FileInspection,
-  type FileListFilters,
-  type PropertyCount,
-  type SearchMatch,
-  type SearchOptions,
-  type SearchResult,
-  type TagCount,
-  type TaggedFile,
-  type TagTreeNode,
-} from "@aliou/obsdx-index";
-
 type CountRow = {
   count: number;
 };

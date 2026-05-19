@@ -1,5 +1,5 @@
+import type { TagTreeNode } from "@aliou/obsdx-index";
 import { boolean, command, positional } from "@drizzle-team/brocli";
-import type { TagTreeNode } from "../../vault/cache";
 import {
   listIndexedFilesForTag,
   listIndexedTagCounts,
