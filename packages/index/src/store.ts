@@ -55,7 +55,7 @@ export interface VaultIndexStore {
 
   // --- read: files ----------------------------------------------------------
 
-  getStatus(vaultRoot: string, currentFiles: ScannedVaultFile[]): CacheStatus;
+  getStatus(currentFiles: ScannedVaultFile[]): CacheStatus;
   listFiles(filters?: FileListFilters): CachedVaultFile[];
   getFile(filePath: string): CachedVaultFile | undefined;
   inspectFile(filePath: string): FileInspection | undefined;

@@ -10,59 +10,34 @@ import {
   type BaseQueryResult,
   queryBase,
 } from "@aliou/obsdx-base-engine";
-import type { MarkdownIndexInput } from "@aliou/obsdx-index";
-import { canvasGraph } from "../canvas/graph";
-import { type CanvasDocument, parseCanvas } from "../canvas/parser";
-import { ObsdxError } from "../cli/errors";
-import type { VaultGraph } from "../graph/graph";
-import { type MarkdownParseResult, parseMarkdown } from "../markdown/parser";
-import type { CacheDb } from "./cache";
 import {
-  buildCachedGraph,
-  buildTagTree as buildCachedTagTree,
+  buildTagTree,
   type CachedLink,
   type CachedProperty,
   type CachedVaultFile,
   type CacheStatus,
-  deleteBaseIndexes,
-  deleteCachedFiles,
-  deleteMarkdownIndexes,
-  diffCachedFiles,
   type FileInspection,
   type FileListFilters,
-  getCachedBase,
-  getCachedFile,
-  getCacheStatus,
-  inspectCachedFile,
-  listAmbiguousLinks,
-  listBacklinks,
-  listCachedFiles,
-  listFileProperties,
-  listFilesForProperty,
-  listFilesForTag,
-  listMentions,
-  listPropertyCounts,
-  listTagCounts,
-  listUnresolvedLinks,
-  openVaultCache,
+  type MarkdownIndexInput,
   type PropertyCount,
-  replaceBaseIndex,
-  replaceIndexedFiles,
-  replaceMarkdownIndex,
-  resolveCachedLinks,
+  type ScannedVaultFile,
   type SearchOptions,
   type SearchResult,
-  searchCachedMarkdown,
   type TagCount,
   type TaggedFile,
   type TagTreeNode,
-  upsertIndexedFiles,
-  vacuumCache,
-} from "./cache";
+  type VaultGraph,
+  type VaultIndexStore,
+} from "@aliou/obsdx-index";
+import { canvasGraph } from "../canvas/graph";
+import { type CanvasDocument, parseCanvas } from "../canvas/parser";
+import { ObsdxError } from "../cli/errors";
+import { type MarkdownParseResult, parseMarkdown } from "../markdown/parser";
 import { loadVaultConfig } from "./config";
 import type { ResolvedVault } from "./discover";
 import { withIndexLock } from "./lock";
-import { type ScannedVaultFile, scanVaultFiles } from "./scanner";
+import { scanVaultFiles } from "./scanner";
+import { openSqliteVaultIndex } from "./sqlite-store";
 
 export type IndexRefreshResult = {
   indexed: number;
@@ -76,53 +51,56 @@ export type ChangedFilesResult = {
   deleted: CachedVaultFile[];
 };
 
+async function withStore<T>(
+  vault: ResolvedVault,
+  fn: (store: VaultIndexStore) => Promise<T> | T,
+): Promise<T> {
+  const store = await openSqliteVaultIndex(vault);
+  try {
+    return await fn(store);
+  } finally {
+    store.close();
+  }
+}
+
 export async function refreshVaultIndex(
   vault: ResolvedVault,
   options: { rebuild?: boolean; lockTimeoutMs?: number } = {},
 ): Promise<IndexRefreshResult> {
   return withIndexLock(
     vault,
-    async () => {
-      const db = await openVaultCache(vault);
-      const config = await loadVaultConfig(vault);
-      const scannedFiles = await scanVaultFiles(vault.root);
-      const changes = diffCachedFiles(db, scannedFiles);
+    () =>
+      withStore(vault, async (store) => {
+        const config = await loadVaultConfig(vault);
+        const scannedFiles = await scanVaultFiles(vault.root);
+        const changes = store.diffFiles(scannedFiles);
 
-      try {
         if (options.rebuild) {
-          replaceIndexedFiles(db, scannedFiles);
+          store.replaceFiles(scannedFiles);
           await indexMarkdownFiles(
-            db,
+            store,
             vault,
             scannedFiles,
             config.propertyTypes,
           );
-          await indexBaseFiles(db, vault, scannedFiles);
+          await indexBaseFiles(store, vault, scannedFiles);
         } else {
-          upsertIndexedFiles(db, changes.stale);
+          store.upsertFiles(changes.stale);
           await indexMarkdownFiles(
-            db,
+            store,
             vault,
             changes.stale,
             config.propertyTypes,
           );
-          await indexBaseFiles(db, vault, changes.stale);
-          deleteMarkdownIndexes(
-            db,
-            changes.deleted.map((file) => file.path),
-          );
-          deleteBaseIndexes(
-            db,
-            changes.deleted.map((file) => file.path),
-          );
-          deleteCachedFiles(
-            db,
-            changes.deleted.map((file) => file.path),
-          );
+          await indexBaseFiles(store, vault, changes.stale);
+          const deletedPaths = changes.deleted.map((file) => file.path);
+          store.deleteMarkdown(deletedPaths);
+          store.deleteBase(deletedPaths);
+          store.deleteFiles(deletedPaths);
         }
-        resolveCachedLinks(db);
+        store.resolveLinks();
 
-        const status = getCacheStatus(db, vault, scannedFiles);
+        const status = store.getStatus(scannedFiles);
         const indexed = options.rebuild
           ? scannedFiles.length
           : changes.stale.length;
@@ -133,10 +111,7 @@ export async function refreshVaultIndex(
           stale: changes.stale.length,
           status,
         };
-      } finally {
-        db.close();
-      }
-    },
+      }),
     { timeoutMs: options.lockTimeoutMs },
   );
 }
@@ -144,14 +119,8 @@ export async function refreshVaultIndex(
 export async function readIndexStatus(
   vault: ResolvedVault,
 ): Promise<CacheStatus> {
-  const db = await openVaultCache(vault);
   const scannedFiles = await scanVaultFiles(vault.root);
-
-  try {
-    return getCacheStatus(db, vault, scannedFiles);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.getStatus(scannedFiles));
 }
 
 export async function listIndexedFiles(
@@ -159,13 +128,7 @@ export async function listIndexedFiles(
   filters: FileListFilters = {},
 ): Promise<CachedVaultFile[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listCachedFiles(db, filters);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listFiles(filters));
 }
 
 export async function getIndexedFile(
@@ -173,13 +136,7 @@ export async function getIndexedFile(
   filePath: string,
 ): Promise<CachedVaultFile | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return getCachedFile(db, filePath);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.getFile(filePath));
 }
 
 export async function inspectIndexedFile(
@@ -187,13 +144,7 @@ export async function inspectIndexedFile(
   filePath: string,
 ): Promise<FileInspection | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return inspectCachedFile(db, filePath);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.inspectFile(filePath));
 }
 
 export async function listIndexedOutgoingLinks(
@@ -201,11 +152,7 @@ export async function listIndexedOutgoingLinks(
   filePath: string,
 ): Promise<CachedLink[] | undefined> {
   const inspection = await inspectIndexedFile(vault, filePath);
-  if (!inspection) {
-    return undefined;
-  }
-
-  return inspection.links;
+  return inspection?.links;
 }
 
 export async function listIndexedBacklinks(
@@ -213,17 +160,12 @@ export async function listIndexedBacklinks(
   filePath: string,
 ): Promise<CachedLink[] | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    if (!getCachedFile(db, filePath)) {
+  return withStore(vault, (store) => {
+    if (!store.getFile(filePath)) {
       return undefined;
     }
-
-    return listBacklinks(db, filePath);
-  } finally {
-    db.close();
-  }
+    return store.listBacklinks(filePath);
+  });
 }
 
 export async function listIndexedMentions(
@@ -231,59 +173,35 @@ export async function listIndexedMentions(
   query: string,
 ): Promise<CachedLink[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listMentions(db, query);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listMentions(query));
 }
 
 export async function listIndexedUnresolvedLinks(
   vault: ResolvedVault,
 ): Promise<CachedLink[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listUnresolvedLinks(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listUnresolvedLinks());
 }
 
 export async function listIndexedAmbiguousLinks(
   vault: ResolvedVault,
 ): Promise<CachedLink[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listAmbiguousLinks(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listAmbiguousLinks());
 }
 
 export async function listIndexedTagCounts(
   vault: ResolvedVault,
 ): Promise<TagCount[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listTagCounts(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listTagCounts());
 }
 
 export async function listIndexedTagTree(
   vault: ResolvedVault,
 ): Promise<TagTreeNode[]> {
   const tags = await listIndexedTagCounts(vault);
-  return buildCachedTagTree(tags);
+  return buildTagTree(tags);
 }
 
 export async function listIndexedFilesForTag(
@@ -291,13 +209,7 @@ export async function listIndexedFilesForTag(
   tag: string,
 ): Promise<TaggedFile[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listFilesForTag(db, tag);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listFilesForTag(tag));
 }
 
 export async function listIndexedFilesForProperty(
@@ -306,26 +218,16 @@ export async function listIndexedFilesForProperty(
   propertyValue?: string,
 ): Promise<CachedVaultFile[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listFilesForProperty(db, propertyName, propertyValue);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) =>
+    store.listFilesForProperty(propertyName, propertyValue),
+  );
 }
 
 export async function listIndexedPropertyCounts(
   vault: ResolvedVault,
 ): Promise<PropertyCount[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listPropertyCounts(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listPropertyCounts());
 }
 
 export async function getIndexedProperties(
@@ -333,13 +235,7 @@ export async function getIndexedProperties(
   filePath: string,
 ): Promise<CachedProperty[] | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return listFileProperties(db, filePath);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.listFileProperties(filePath));
 }
 
 export async function searchIndexedMarkdown(
@@ -347,13 +243,7 @@ export async function searchIndexedMarkdown(
   options: SearchOptions,
 ): Promise<SearchResult[]> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return searchCachedMarkdown(db, options);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.searchMarkdown(options));
 }
 
 export async function listIndexedBases(
@@ -367,15 +257,13 @@ export async function inspectIndexedBase(
   filePath: string,
 ): Promise<BaseDefinition | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    const file = getCachedFile(db, filePath);
+  return withStore(vault, async (store) => {
+    const file = store.getFile(filePath);
     if (!file || file.kind !== "base") {
       return undefined;
     }
 
-    const base = getCachedBase(db, filePath);
+    const base = store.getBase(filePath);
     if (!base) {
       return readBaseDefinition(vault, filePath);
     }
@@ -387,9 +275,7 @@ export async function inspectIndexedBase(
     }
 
     return base.definition ?? undefined;
-  } finally {
-    db.close();
-  }
+  });
 }
 
 export async function validateIndexedBase(
@@ -415,18 +301,15 @@ export async function queryIndexedBase(
   }
 
   await refreshVaultIndex(vault);
-  const db = await openVaultCache(vault);
-  try {
-    const files = listCachedFiles(db);
+  return withStore(vault, (store) => {
+    const files = store.listFiles();
     const inspections = files.flatMap((file) => {
-      const inspection = inspectCachedFile(db, file.path);
+      const inspection = store.inspectFile(file.path);
       return inspection ? [inspection] : [];
     });
 
     return queryBase(base, inspections, options);
-  } finally {
-    db.close();
-  }
+  });
 }
 
 export async function renderIndexedBaseEmbeds(
@@ -476,13 +359,7 @@ export async function exportIndexedGraph(
   vault: ResolvedVault,
 ): Promise<VaultGraph> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    return buildCachedGraph(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.buildGraph());
 }
 
 export async function listIndexedCanvases(
@@ -496,17 +373,13 @@ export async function inspectIndexedCanvas(
   filePath: string,
 ): Promise<CanvasDocument | undefined> {
   await refreshVaultIndex(vault);
-
-  const db = await openVaultCache(vault);
-  try {
-    const file = getCachedFile(db, filePath);
-    if (!file || file.kind !== "canvas") {
-      return undefined;
-    }
-  } finally {
-    db.close();
+  const exists = await withStore(vault, (store) => {
+    const file = store.getFile(filePath);
+    return file?.kind === "canvas";
+  });
+  if (!exists) {
+    return undefined;
   }
-
   return readCanvasDocument(vault, filePath);
 }
 
@@ -521,14 +394,8 @@ export async function exportIndexedCanvasGraph(
 export async function listChangedFiles(
   vault: ResolvedVault,
 ): Promise<ChangedFilesResult> {
-  const db = await openVaultCache(vault);
   const scannedFiles = await scanVaultFiles(vault.root);
-
-  try {
-    return diffCachedFiles(db, scannedFiles);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => store.diffFiles(scannedFiles));
 }
 
 async function readBaseDefinition(
@@ -548,17 +415,13 @@ async function readCanvasDocument(
 }
 
 export async function vacuumVaultCache(vault: ResolvedVault): Promise<void> {
-  const db = await openVaultCache(vault);
-
-  try {
-    vacuumCache(db);
-  } finally {
-    db.close();
-  }
+  return withStore(vault, (store) => {
+    store.vacuum();
+  });
 }
 
 async function indexMarkdownFiles(
-  db: CacheDb,
+  store: VaultIndexStore,
   vault: ResolvedVault,
   files: ScannedVaultFile[],
   propertyTypes: Record<string, string>,
@@ -569,8 +432,7 @@ async function indexMarkdownFiles(
     }
 
     const source = await readFile(path.join(vault.root, file.path), "utf8");
-    replaceMarkdownIndex(
-      db,
+    store.replaceMarkdown(
       file.path,
       toMarkdownIndexInput(parseMarkdown(source, propertyTypes)),
     );
@@ -578,7 +440,7 @@ async function indexMarkdownFiles(
 }
 
 async function indexBaseFiles(
-  db: CacheDb,
+  store: VaultIndexStore,
   vault: ResolvedVault,
   files: ScannedVaultFile[],
 ): Promise<void> {
@@ -589,12 +451,12 @@ async function indexBaseFiles(
 
     const source = await readFile(path.join(vault.root, file.path), "utf8");
     try {
-      replaceBaseIndex(db, file.path, {
+      store.replaceBase(file.path, {
         definition: parseBase(file.path, source),
         parseError: null,
       });
     } catch (error) {
-      replaceBaseIndex(db, file.path, {
+      store.replaceBase(file.path, {
         definition: null,
         parseError: error instanceof Error ? error.message : String(error),
       });
