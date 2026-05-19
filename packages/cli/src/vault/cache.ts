@@ -4,6 +4,7 @@ import path from "node:path";
 import type * as Sqlite from "node:sqlite";
 import type { BaseDefinition } from "@aliou/obsdx-base-ast";
 import type {
+  BaseIndexInput,
   CachedBase,
   CachedBlock,
   CachedHeading,
@@ -16,6 +17,7 @@ import type {
   FileListFilters,
   GraphEdge,
   GraphEdgeKind,
+  MarkdownIndexInput,
   PropertyCount,
   ScannedVaultFile,
   SearchMatch,
@@ -27,7 +29,6 @@ import type {
   VaultGraph,
 } from "@aliou/obsdx-index";
 import { ObsdxError } from "../cli/errors";
-import type { MarkdownParseResult } from "../markdown/parser";
 import type { ResolvedVault } from "./discover";
 
 const require = createRequire(import.meta.url);
@@ -420,7 +421,7 @@ export function deleteCachedFiles(db: CacheDb, paths: string[]): void {
 export function replaceMarkdownIndex(
   db: CacheDb,
   filePath: string,
-  parsed: MarkdownParseResult,
+  input: MarkdownIndexInput,
 ): void {
   withTransaction(db, () => {
     deleteMarkdownIndex(db, filePath);
@@ -435,9 +436,9 @@ export function replaceMarkdownIndex(
       values (?, ?, ?, ?)
     `).run(
       filePath,
-      parsed.frontmatter ? JSON.stringify(parsed.frontmatter) : null,
-      parsed.body,
-      parsed.bodyStartLine,
+      input.frontmatter ? JSON.stringify(input.frontmatter) : null,
+      input.body,
+      input.bodyStartLine,
     );
     db.prepare("delete from search_index where file_path = ?").run(filePath);
     db.prepare(
@@ -446,20 +447,20 @@ export function replaceMarkdownIndex(
       filePath,
       filePath,
       path.basename(filePath, path.extname(filePath)),
-      parsed.body,
-      parsed.frontmatter ? JSON.stringify(parsed.frontmatter) : "",
+      input.body,
+      input.frontmatter ? JSON.stringify(input.frontmatter) : "",
     );
 
     const insertProperty = db.prepare(`
       insert into properties (file_path, name, value_json, value_type)
       values (?, ?, ?, ?)
     `);
-    for (const [name, value] of Object.entries(parsed.properties)) {
+    for (const property of input.properties) {
       insertProperty.run(
         filePath,
-        name,
-        JSON.stringify(value),
-        parsed.propertyValueTypes[name] ?? valueType(value),
+        property.name,
+        JSON.stringify(property.value),
+        property.valueType,
       );
     }
 
@@ -467,7 +468,7 @@ export function replaceMarkdownIndex(
       insert into tags (file_path, tag, source, line)
       values (?, ?, ?, ?)
     `);
-    for (const tag of parsed.tags) {
+    for (const tag of input.tags) {
       insertTag.run(filePath, tag.tag, tag.source, tag.line ?? null);
     }
 
@@ -489,34 +490,19 @@ export function replaceMarkdownIndex(
       )
       values (?, ?, ?, ?, ?, ?, ?, ?, ?, null, 1, ?, ?)
     `);
-    for (const link of parsed.wikilinks) {
+    for (const link of input.links) {
       insertLink.run(
         filePath,
         link.raw,
-        "wikilink",
+        link.kind,
         link.embedded ? 1 : 0,
         link.targetText,
-        link.targetText,
-        link.heading ?? null,
-        link.blockId ?? null,
-        link.display ?? null,
-        link.line ?? null,
-        link.column ?? null,
-      );
-    }
-    for (const link of parsed.markdownLinks) {
-      insertLink.run(
-        filePath,
-        link.raw,
-        "markdown",
-        link.embedded ? 1 : 0,
-        link.target,
-        link.target,
-        null,
-        null,
-        link.label,
-        link.line ?? null,
-        link.column ?? null,
+        link.targetPathText,
+        link.heading,
+        link.blockId,
+        link.display,
+        link.line,
+        link.column,
       );
     }
 
@@ -524,7 +510,7 @@ export function replaceMarkdownIndex(
       insert into headings (file_path, level, text, slug, line)
       values (?, ?, ?, ?, ?)
     `);
-    for (const heading of parsed.headings) {
+    for (const heading of input.headings) {
       insertHeading.run(
         filePath,
         heading.level,
@@ -538,11 +524,11 @@ export function replaceMarkdownIndex(
       insert into blocks (file_path, block_id, line)
       values (?, ?, ?)
     `);
-    for (const block of parsed.blocks) {
+    for (const block of input.blocks) {
       insertBlock.run(filePath, block.blockId, block.line);
     }
 
-    updateParseError(db, filePath, parsed.frontmatterError ?? null);
+    updateParseError(db, filePath, input.parseError);
   });
 }
 
@@ -561,8 +547,7 @@ export function deleteMarkdownIndexes(db: CacheDb, paths: string[]): void {
 export function replaceBaseIndex(
   db: CacheDb,
   filePath: string,
-  definition: BaseDefinition | null,
-  parseError: string | null,
+  input: BaseIndexInput,
 ): void {
   withTransaction(db, () => {
     deleteBaseIndex(db, filePath);
@@ -571,11 +556,11 @@ export function replaceBaseIndex(
       values (?, ?, ?, ?)
     `).run(
       filePath,
-      definition ? JSON.stringify(definition) : null,
-      parseError,
+      input.definition ? JSON.stringify(input.definition) : null,
+      input.parseError,
       new Date().toISOString(),
     );
-    updateParseError(db, filePath, parseError);
+    updateParseError(db, filePath, input.parseError);
   });
 }
 
@@ -1126,18 +1111,6 @@ function updateParseError(
     parseError,
     filePath,
   );
-}
-
-function valueType(value: unknown): string {
-  if (value === null) {
-    return "null";
-  }
-
-  if (Array.isArray(value)) {
-    return "list";
-  }
-
-  return typeof value;
 }
 
 function validateMetadata(db: CacheDb): void {

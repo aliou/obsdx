@@ -10,11 +10,12 @@ import {
   type BaseQueryResult,
   queryBase,
 } from "@aliou/obsdx-base-engine";
+import type { MarkdownIndexInput } from "@aliou/obsdx-index";
 import { canvasGraph } from "../canvas/graph";
 import { type CanvasDocument, parseCanvas } from "../canvas/parser";
 import { ObsdxError } from "../cli/errors";
 import type { VaultGraph } from "../graph/graph";
-import { parseMarkdown } from "../markdown/parser";
+import { type MarkdownParseResult, parseMarkdown } from "../markdown/parser";
 import type { CacheDb } from "./cache";
 import {
   buildCachedGraph,
@@ -568,7 +569,11 @@ async function indexMarkdownFiles(
     }
 
     const source = await readFile(path.join(vault.root, file.path), "utf8");
-    replaceMarkdownIndex(db, file.path, parseMarkdown(source, propertyTypes));
+    replaceMarkdownIndex(
+      db,
+      file.path,
+      toMarkdownIndexInput(parseMarkdown(source, propertyTypes)),
+    );
   }
 }
 
@@ -584,14 +589,77 @@ async function indexBaseFiles(
 
     const source = await readFile(path.join(vault.root, file.path), "utf8");
     try {
-      replaceBaseIndex(db, file.path, parseBase(file.path, source), null);
+      replaceBaseIndex(db, file.path, {
+        definition: parseBase(file.path, source),
+        parseError: null,
+      });
     } catch (error) {
-      replaceBaseIndex(
-        db,
-        file.path,
-        null,
-        error instanceof Error ? error.message : String(error),
-      );
+      replaceBaseIndex(db, file.path, {
+        definition: null,
+        parseError: error instanceof Error ? error.message : String(error),
+      });
     }
   }
+}
+
+function toMarkdownIndexInput(parsed: MarkdownParseResult): MarkdownIndexInput {
+  return {
+    frontmatter: parsed.frontmatter,
+    body: parsed.body,
+    bodyStartLine: parsed.bodyStartLine,
+    parseError: parsed.frontmatterError ?? null,
+    properties: Object.entries(parsed.properties).map(([name, value]) => ({
+      name,
+      value,
+      valueType: parsed.propertyValueTypes[name] ?? defaultValueType(value),
+    })),
+    tags: parsed.tags.map((tag) => ({
+      tag: tag.tag,
+      source: tag.source,
+      line: tag.line ?? null,
+    })),
+    links: [
+      ...parsed.wikilinks.map((link) => ({
+        raw: link.raw,
+        kind: "wikilink" as const,
+        embedded: link.embedded,
+        targetText: link.targetText,
+        targetPathText: link.targetText,
+        heading: link.heading ?? null,
+        blockId: link.blockId ?? null,
+        display: link.display ?? null,
+        line: link.line ?? null,
+        column: link.column ?? null,
+      })),
+      ...parsed.markdownLinks.map((link) => ({
+        raw: link.raw,
+        kind: "markdown" as const,
+        embedded: link.embedded,
+        targetText: link.target,
+        targetPathText: link.target,
+        heading: null,
+        blockId: null,
+        display: link.label,
+        line: link.line ?? null,
+        column: link.column ?? null,
+      })),
+    ],
+    headings: parsed.headings,
+    blocks: parsed.blocks.map((block) => ({
+      blockId: block.blockId,
+      line: block.line,
+    })),
+  };
+}
+
+function defaultValueType(value: unknown): string {
+  if (value === null) {
+    return "null";
+  }
+
+  if (Array.isArray(value)) {
+    return "list";
+  }
+
+  return typeof value;
 }
