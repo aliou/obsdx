@@ -51,29 +51,23 @@ jobs:
       - name: Get release info
         id: release-info
         run: |
-          pnpm changeset status --output=release.json 2>/dev/null || echo '{"releases":[]}' > release.json
+          set -euo pipefail
+          if ! pnpm changeset status --output=release.json 2>/dev/null; then
+            echo '{"releases":[]}' > release.json
+          fi
+
           node <<'NODE'
           const fs = require('node:fs');
           const release = JSON.parse(fs.readFileSync('release.json', 'utf8'));
           const releases = release.releases?.filter((release) => release.type !== 'none') || [];
-
-          let title = 'Updating obsdx packages';
-          let commit = title;
-          if (releases.length === 1) {
-            const { name, newVersion } = releases[0];
-            title = `Updating ${name} to version ${newVersion}`;
-            commit = `${name}@${newVersion}`;
-          } else if (releases.length > 1) {
-            const summary = releases.map((release) => `${release.name}@${release.newVersion}`).join(', ');
-            title = `Updating ${summary}`;
-            commit = summary;
-          }
+          const summary = releases.map((release) => `${release.name}@${release.newVersion}`).join(', ');
+          const title = summary ? `Release ${summary}` : 'Release package versions';
+          const commit = summary || title;
 
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `title=${title}\n`);
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `commit=${commit}\n`);
           NODE
           rm -f release.json
-        continue-on-error: true
 
       - name: Create Release PR or publish
         id: changesets
@@ -81,8 +75,8 @@ jobs:
         with:
           version: pnpm changeset version
           publish: pnpm publish:packages
-          title: ${{ steps.release-info.outputs.title || 'Updating obsdx packages' }}
-          commit: ${{ steps.release-info.outputs.commit || 'Updating obsdx packages' }}
+          title: ${{ steps.release-info.outputs.title }}
+          commit: ${{ steps.release-info.outputs.commit }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
