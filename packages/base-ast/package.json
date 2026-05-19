@@ -1,6 +1,6 @@
 {
   "name": "@aliou/obsdx-base-ast",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Obsidian Base syntax parsing for obsdx",
   "license": "MIT",
   "type": "module",
