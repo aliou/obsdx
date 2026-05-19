@@ -45,8 +45,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build publishable packages
-        run: pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine --filter @aliou/obsdx-index run build
+      - name: Build packages and CLI
+        run: pnpm build
 
       - name: Get release info
         id: release-info
@@ -80,3 +80,62 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
+
+      - name: Get release tag
+        id: release-tag
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          set -euo pipefail
+          version="$(node <<'NODE'
+          const packages = JSON.parse(process.env.PUBLISHED_PACKAGES || '[]');
+          if (!packages.length) throw new Error('No published packages found');
+          console.log(packages[0].version);
+          NODE
+          )"
+          echo "name=v${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          TAG: ${{ steps.release-tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally"
+          else
+            git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin"
+          else
+            git push origin "$TAG"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release-tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "${{ github.event.workflow_run.head_sha }}" \
+              --title "$TAG" \
+              --notes "Release $TAG"
+          fi
+
+      - name: Upload CLI binaries
+        if: steps.changesets.outputs.published == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release-tag.outputs.name }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" packages/cli/dist/obsdx* --clobber
