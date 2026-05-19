@@ -7,10 +7,6 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
-  "references": [
-    { "path": "../base-ast" },
-    { "path": "../base-engine" },
-    { "path": "../index" }
-  ],
+  "references": [{ "path": "../base-ast" }],
   "exclude": ["dist", "node_modules"]
 }

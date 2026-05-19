@@ -3,6 +3,7 @@ import { defineConfig } from "tsdown";
 const neverBundle = [
   "@aliou/obsdx-base-ast",
   "@aliou/obsdx-base-engine",
+  "@aliou/obsdx-index",
   "chokidar",
   "fast-glob",
 ];
