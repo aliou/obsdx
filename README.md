@@ -1,1 +1,1 @@
-![obsdx](https://assets.aliou.me/github/obsdx/banner-gh.png)
+![obsdx](https://assets.aliou.me/github/aliou/obsdx/banner-gh.png)
