@@ -6,6 +6,11 @@ export type {
   VaultFileKind,
 } from "./files";
 export type { GraphEdge, GraphEdgeKind, GraphNode, VaultGraph } from "./graph";
+export type {
+  BaseIndexInput,
+  IndexedLinkInput,
+  MarkdownIndexInput,
+} from "./inputs";
 export {
   buildTagTree,
   type CachedBase,
@@ -26,3 +31,4 @@ export type {
   SearchOptions,
   SearchResult,
 } from "./search";
+export type { IndexDiff, VaultIndexStore } from "./store";
