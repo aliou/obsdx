@@ -46,7 +46,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build publishable packages
-        run: pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine run build
+        run: pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine --filter @aliou/obsdx-index run build
 
       - name: Get release info
         id: release-info

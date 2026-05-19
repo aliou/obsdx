@@ -14,7 +14,7 @@
     "bump": "tsx scripts/bump.ts",
     "changeset": "changeset",
     "version": "changeset version",
-    "publish:packages": "pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine publish -r --access public --no-git-checks",
+    "publish:packages": "pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine --filter @aliou/obsdx-index publish -r --access public --no-git-checks",
     "release": "pnpm publish:packages"
   },
   "devDependencies": {
