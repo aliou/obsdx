@@ -1,26 +1,11 @@
-export type GraphEdgeKind =
-  | "link"
-  | "embed"
-  | "property-link"
-  | "canvas-file"
-  | "canvas-edge"
-  | "base-embed";
+import type { GraphEdge, GraphNode, VaultGraph } from "@aliou/obsdx-index";
 
-export type GraphEdge = {
-  source: string;
-  target: string;
-  kind: GraphEdgeKind;
-};
-
-export type GraphNode = {
-  path: string;
-  kind: string;
-};
-
-export type VaultGraph = {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-};
+export type {
+  GraphEdge,
+  GraphEdgeKind,
+  GraphNode,
+  VaultGraph,
+} from "@aliou/obsdx-index";
 
 export type GraphDirection = "incoming" | "outgoing" | "both";
 

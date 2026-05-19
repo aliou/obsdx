@@ -1,29 +1,9 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
+import type { ScannedVaultFile, VaultFileKind } from "@aliou/obsdx-index";
 import fg from "fast-glob";
 
-export type VaultFileKind =
-  | "markdown"
-  | "base"
-  | "canvas"
-  | "image"
-  | "pdf"
-  | "audio"
-  | "video"
-  | "attachment"
-  | "unknown";
-
-export type ScannedVaultFile = {
-  path: string;
-  name: string;
-  basename: string;
-  ext: string;
-  folder: string;
-  kind: VaultFileKind;
-  size: number;
-  ctime: string;
-  mtime: string;
-};
+export type { ScannedVaultFile, VaultFileKind } from "@aliou/obsdx-index";
 
 export async function scanVaultFiles(
   vaultRoot: string,
