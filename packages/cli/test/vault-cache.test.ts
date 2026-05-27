@@ -1,6 +1,7 @@
 import { expect } from "vitest";
 import {
   inspectIndexedBase,
+  listIndexedFilesForProperty,
   queryIndexedBase,
   refreshVaultIndex,
   searchIndexedMarkdown,
@@ -281,6 +282,91 @@ test("queries supported Base views from local fixtures", async ({
       values: { "formula.cost_per_use": 4 },
     },
   ]);
+});
+
+test("finds files by boolean property value", async ({
+  writeMarkdown,
+  refresh,
+  openDb,
+  vault,
+}) => {
+  await writeMarkdown("notes/active.md", { Discard: true }, "Active note");
+  await writeMarkdown("notes/archived.md", { Discard: false }, "Archived note");
+  await writeMarkdown(
+    "notes/unrelated.md",
+    { Status: "active" },
+    "Unrelated note",
+  );
+  await refresh();
+
+  // Verify the DB stores the boolean as JSON true, not JSON "true"
+  const db = openDb();
+  try {
+    expect(db).toHaveIndexedProperty(
+      "notes/active.md",
+      "Discard",
+      true,
+      "boolean",
+    );
+    expect(db).toHaveIndexedProperty(
+      "notes/archived.md",
+      "Discard",
+      false,
+      "boolean",
+    );
+  } finally {
+    db.close();
+  }
+
+  // listIndexedFilesForProperty with --value "true" should match boolean true
+  const filesTrue = await listIndexedFilesForProperty(vault, "Discard", "true");
+  expect(filesTrue.map((f) => f.path)).toContain("notes/active.md");
+
+  // listIndexedFilesForProperty with --value "false" should match boolean false
+  const filesFalse = await listIndexedFilesForProperty(
+    vault,
+    "Discard",
+    "false",
+  );
+  expect(filesFalse.map((f) => f.path)).toContain("notes/archived.md");
+
+  // Without --value, all files with the property should be returned
+  const allFiles = await listIndexedFilesForProperty(vault, "Discard");
+  expect(allFiles.map((f) => f.path)).toEqual([
+    "notes/active.md",
+    "notes/archived.md",
+  ]);
+});
+
+test("finds files by numeric property value", async ({
+  writeMarkdown,
+  refresh,
+  openDb,
+  vault,
+}) => {
+  await writeMarkdown(
+    "notes/high-priority.md",
+    { priority: 1 },
+    "High priority",
+  );
+  await writeMarkdown("notes/low-priority.md", { priority: 3 }, "Low priority");
+  await refresh();
+
+  const db = openDb();
+  try {
+    expect(db).toHaveIndexedProperty(
+      "notes/high-priority.md",
+      "priority",
+      1,
+      "number",
+    );
+  } finally {
+    db.close();
+  }
+
+  // listIndexedFilesForProperty with --value "1" should match number 1
+  const files = await listIndexedFilesForProperty(vault, "priority", "1");
+  expect(files.map((f) => f.path)).toContain("notes/high-priority.md");
 });
 
 test("searches a scoped temporary vault", async ({ writeMarkdown, vault }) => {

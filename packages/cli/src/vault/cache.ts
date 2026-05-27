@@ -838,7 +838,6 @@ export function listFileProperties(
 
   return listProperties(db, filePath);
 }
-
 export function listFilesForProperty(
   db: CacheDb,
   propertyName: string,
@@ -851,9 +850,9 @@ export function listFilesForProperty(
       select f.path, f.name, f.basename, f.ext, f.folder, f.kind, f.size, f.ctime, f.mtime, f.indexed_at, f.parse_error
       from files f
       join properties p on p.file_path = f.path
-      where p.name = ? and p.value_json = ?
+      where p.name = ? and (p.value_json = json_quote(?) or p.value_json = ?)
       order by f.path`;
-    params = [propertyName, JSON.stringify(propertyValue)];
+    params = [propertyName, propertyValue, propertyValue];
   } else {
     sql = `
       select f.path, f.name, f.basename, f.ext, f.folder, f.kind, f.size, f.ctime, f.mtime, f.indexed_at, f.parse_error
