@@ -30,8 +30,10 @@ test("indexes a scoped temporary vault into SQLite", async ({
       kind: "markdown",
       folder: "Notes",
     });
-    expect(db).toHaveProperty("Notes/A.md", "rating", 7, "number");
-    expect(db).toHaveProperty("Notes/A.md", "author", ["[[Ada Lovelace]]"]);
+    expect(db).toHaveIndexedProperty("Notes/A.md", "rating", 7, "number");
+    expect(db).toHaveIndexedProperty("Notes/A.md", "author", [
+      "[[Ada Lovelace]]",
+    ]);
     expect(db).toHaveTag("Notes/A.md", "project");
     expect(db).toHaveTag("Notes/A.md", "inline/tag");
     expect(db).toHaveResolvedLink("Notes/A.md", "[[B]]", "Notes/B.md");

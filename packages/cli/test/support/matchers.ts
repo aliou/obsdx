@@ -8,9 +8,10 @@ type FilePartial = {
 };
 
 declare module "vitest" {
-  interface Matchers<T = unknown> {
+  // biome-ignore lint/suspicious/noExplicitAny: must match vitest's Matchers signature
+  interface Matchers<T = any> {
     toHaveIndexedFile(path: string, partial?: FilePartial): T;
-    toHaveProperty(
+    toHaveIndexedProperty(
       filePath: string,
       name: string,
       value: unknown,
@@ -41,7 +42,7 @@ expect.extend({
     };
   },
 
-  toHaveProperty(
+  toHaveIndexedProperty(
     db: DatabaseSync,
     filePath: string,
     name: string,
