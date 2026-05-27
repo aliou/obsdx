@@ -8,6 +8,11 @@ export {
   type BasePropertyConfig,
   type BaseSort,
   type BaseView,
+  expressionUsesThis,
+  filterUsesThis,
+  formulasUsingThis,
   parseBase,
+  resolveContextRequirements,
   validateBase,
+  viewRequiresContext,
 } from "./parser";

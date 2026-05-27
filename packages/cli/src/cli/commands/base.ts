@@ -1,3 +1,7 @@
+import {
+  type BaseDefinition,
+  resolveContextRequirements,
+} from "@aliou/obsdx-base-ast";
 import { command, positional, string } from "@drizzle-team/brocli";
 import {
   inspectIndexedBase,
@@ -42,18 +46,22 @@ export const baseCommand = command({
       handler: async (commandOptions) => {
         const options = getGlobalOptions();
         const vault = await resolveVaultFromOptions();
-        const base = await inspectIndexedBase(vault, commandOptions.path);
+        const raw = await inspectIndexedBase(vault, commandOptions.path);
 
-        if (!base) {
+        if (!raw) {
           throw baseNotFound(commandOptions.path);
         }
+
+        const base = resolveContextRequirements(raw);
 
         if (options.json) {
           writeJson({ base }, options);
           return;
         }
 
-        writeHuman(`${base.path}: ${base.views.length} views`, options);
+        writeHuman(base.path, options);
+        writeBaseSummary(base, options);
+        writeViewsDetail(base, options);
       },
     }),
     command({
@@ -94,19 +102,32 @@ export const baseCommand = command({
       handler: async (commandOptions) => {
         const options = getGlobalOptions();
         const vault = await resolveVaultFromOptions();
-        const base = await inspectIndexedBase(vault, commandOptions.path);
+        const raw = await inspectIndexedBase(vault, commandOptions.path);
 
-        if (!base) {
+        if (!raw) {
           throw baseNotFound(commandOptions.path);
         }
 
+        const base = resolveContextRequirements(raw);
+
         if (options.json) {
-          writeJson({ base: base.path, views: base.views }, options);
+          writeJson(
+            {
+              base: base.path,
+              views: base.views.map((v) => ({
+                name: v.name,
+                type: v.type,
+                requiresContext: v.requiresContext,
+              })),
+            },
+            options,
+          );
           return;
         }
 
         for (const view of base.views) {
-          writeHuman(view.name, options);
+          const suffix = view.requiresContext ? " (requires context)" : "";
+          writeHuman(`${view.name}${suffix}`, options);
         }
       },
     }),
@@ -183,6 +204,115 @@ export const baseCommand = command({
 function baseNotFound(path: string): ObsdxError {
   return new ObsdxError("BASE_NOT_FOUND", `Base not found: ${path}`, { path });
 }
+
+// ---------------------------------------------------------------------------
+// Human-readable base inspect formatting
+// ---------------------------------------------------------------------------
+
+function writeBaseSummary(
+  base: BaseDefinition,
+  options: Pick<GlobalOptions, "quiet">,
+): void {
+  const indent = "  ";
+  const propCount = Object.keys(base.properties).length;
+  const formulaCount = Object.keys(base.formulas).length;
+  const hasBaseFilters = base.filters != null;
+  const hasSummaries =
+    base.summaries != null && Object.keys(base.summaries).length > 0;
+
+  if (propCount > 0) {
+    const names = Object.keys(base.properties).join(", ");
+    writeHuman(`${indent}properties: ${propCount} (${names})`, options);
+  }
+  if (formulaCount > 0) {
+    const names = Object.keys(base.formulas).join(", ");
+    writeHuman(`${indent}formulas: ${formulaCount} (${names})`, options);
+  }
+  if (hasBaseFilters) {
+    writeHuman(`${indent}base filters: yes`, options);
+  }
+  if (hasSummaries) {
+    const names = Object.keys(base.summaries ?? {});
+    writeHuman(`${indent}summaries: ${names.join(", ")}`, options);
+  }
+}
+
+function writeViewsDetail(
+  base: BaseDefinition,
+  options: Pick<GlobalOptions, "quiet">,
+): void {
+  const indent = "  ";
+  const viewIndent = `${indent}${indent}`;
+
+  writeHuman(`${indent}views:`, options);
+
+  for (const [index, view] of base.views.entries()) {
+    const tag = `${index + 1}. ${view.name} (${view.type})`;
+    writeHuman(`${viewIndent}${tag}`, options);
+
+    if (view.order && view.order.length > 0) {
+      writeHuman(`${viewIndent}  columns: ${view.order.join(", ")}`, options);
+    }
+    if (view.filters != null) {
+      const desc = formatFilterSummary(view.filters);
+      writeHuman(`${viewIndent}  filters: ${desc}`, options);
+    }
+    if (view.sort && view.sort.length > 0) {
+      const sorts = view.sort
+        .map((s) => `${s.property} ${s.direction ?? "ASC"}`)
+        .join(", ");
+      writeHuman(`${viewIndent}  sort: ${sorts}`, options);
+    }
+    if (view.limit != null) {
+      writeHuman(`${viewIndent}  limit: ${view.limit}`, options);
+    }
+    if (view.groupBy) {
+      writeHuman(
+        `${viewIndent}  group by: ${view.groupBy.property} ${view.groupBy.direction}`,
+        options,
+      );
+    }
+    if (view.summaries && Object.keys(view.summaries).length > 0) {
+      const pairs = Object.entries(view.summaries)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(", ");
+      writeHuman(`${viewIndent}  summaries: ${pairs}`, options);
+    }
+    if (view.requiresContext) {
+      writeHuman(`${viewIndent}  requires context: yes`, options);
+    }
+  }
+}
+
+function formatFilterSummary(filters: unknown): string {
+  if (typeof filters === "string") {
+    return truncate(filters, 60);
+  }
+  if (Array.isArray(filters)) {
+    return filters.map(formatFilterSummary).join(", ");
+  }
+  if (isRecord(filters)) {
+    const parts: string[] = [];
+    if (Array.isArray(filters.and)) {
+      parts.push(`and(${filters.and.map(formatFilterSummary).join(", ")})`);
+    }
+    if (Array.isArray(filters.or)) {
+      parts.push(`or(${filters.or.map(formatFilterSummary).join(", ")})`);
+    }
+    if (Array.isArray(filters.not)) {
+      parts.push(`not(${filters.not.map(formatFilterSummary).join(", ")})`);
+    }
+    return parts.length > 0 ? parts.join(", ") : "yes";
+  }
+  return "yes";
+}
+
+function truncate(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, maxLength - 1)}\u2026`;
+}
+
+type GlobalOptions = Awaited<ReturnType<typeof getGlobalOptions>>;
 
 function serializeBaseOutput(value: unknown): unknown {
   if (value instanceof Date) {
