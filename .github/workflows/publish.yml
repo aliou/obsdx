@@ -51,23 +51,43 @@ jobs:
       - name: Get release info
         id: release-info
         run: |
-          set -euo pipefail
-          if ! pnpm changeset status --output=release.json 2>/dev/null; then
-            echo '{"releases":[]}' > release.json
-          fi
-
+          pnpm changeset status --output=release.json 2>/dev/null || echo '{"releases":[]}' > release.json
           node <<'NODE'
           const fs = require('node:fs');
+          const path = require('node:path');
           const release = JSON.parse(fs.readFileSync('release.json', 'utf8'));
-          const releases = release.releases?.filter((release) => release.type !== 'none') || [];
-          const summary = releases.map((release) => `${release.name}@${release.newVersion}`).join(', ');
-          const title = summary ? `Release ${summary}` : 'Release package versions';
-          const commit = summary || title;
+          const releases = release.releases?.filter((r) => r.type !== 'none') || [];
 
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `title=${title}\n`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `commit=${commit}\n`);
+          const dirs = fs.readdirSync('packages').filter((d) => {
+            const pkgPath = path.join('packages', d, 'package.json');
+            return fs.statSync(path.join('packages', d)).isDirectory() && fs.existsSync(pkgPath);
+          });
+          const fixedPackages = dirs.map((d) =>
+            JSON.parse(fs.readFileSync(path.join('packages', d, 'package.json'), 'utf8'))
+          );
+          const fallbackSummary = fixedPackages
+            .filter((pkg) => pkg.name && pkg.version)
+            .map((pkg) => pkg.name)
+            .join(', ');
+
+          let title = 'Updating ' + fallbackSummary;
+          let commit = fallbackSummary;
+
+          if (releases.length === 1) {
+            const { name, newVersion } = releases[0];
+            title = 'Updating ' + name + ' to version ' + newVersion;
+            commit = name + '@' + newVersion;
+          } else if (releases.length > 1) {
+            const summary = releases.map((r) => r.name + '@' + r.newVersion).join(', ');
+            title = 'Updating ' + summary;
+            commit = summary;
+          }
+
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'title=' + title + '\n');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'commit=' + commit + '\n');
           NODE
           rm -f release.json
+        continue-on-error: true
 
       - name: Create Release PR or publish
         id: changesets
@@ -75,8 +95,8 @@ jobs:
         with:
           version: pnpm changeset version
           publish: pnpm publish:packages
-          title: ${{ steps.release-info.outputs.title }}
-          commit: ${{ steps.release-info.outputs.commit }}
+          title: ${{ steps.release-info.outputs.title || 'Updating @aliou/obsdx-base-ast, @aliou/obsdx-base-engine, @aliou/obsdx-index, @aliou/obsdx-cli' }}
+          commit: ${{ steps.release-info.outputs.commit || '@aliou/obsdx-base-ast, @aliou/obsdx-base-engine, @aliou/obsdx-index, @aliou/obsdx-cli' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
