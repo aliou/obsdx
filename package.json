@@ -11,9 +11,11 @@
     "test": "turbo run test",
     "lint": "biome check",
     "format": "biome check --write",
-    "bump": "tsx scripts/bump.ts",
     "changeset": "changeset",
     "version": "changeset version",
+    "check:fixed-versions": "node scripts/check-fixed-versions.mjs",
+    "check:fixed-release-plan": "node scripts/check-fixed-release-plan.mjs",
+    "check:version-guardrails": "pnpm check:fixed-versions && pnpm check:fixed-release-plan",
     "publish:packages": "pnpm --filter @aliou/obsdx-base-ast --filter @aliou/obsdx-base-engine --filter @aliou/obsdx-index publish -r --access public --no-git-checks",
     "release": "pnpm publish:packages"
   },

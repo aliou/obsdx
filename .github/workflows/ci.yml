@@ -50,3 +50,6 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Check fixed package versions
+        run: pnpm check:version-guardrails
