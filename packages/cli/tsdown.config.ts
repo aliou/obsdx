@@ -1,4 +1,5 @@
 import { defineConfig } from "tsdown";
+import pkg from "./package.json" with { type: "json" };
 
 const neverBundle = [
   "@aliou/obsdx-base-ast",
@@ -20,6 +21,9 @@ export default defineConfig([
     sourcemap: true,
     clean: true,
     target: "node25",
+    define: {
+      CLI_VERSION: JSON.stringify(pkg.version),
+    },
     deps: {
       neverBundle,
     },
@@ -31,6 +35,9 @@ export default defineConfig([
     sourcemap: true,
     clean: false,
     target: "node25",
+    define: {
+      CLI_VERSION: JSON.stringify(pkg.version),
+    },
     deps: {
       neverBundle,
     },
@@ -41,6 +48,9 @@ export default defineConfig([
     dts: false,
     clean: false,
     target: "node25",
+    define: {
+      CLI_VERSION: JSON.stringify(pkg.version),
+    },
     deps: {
       alwaysBundle: [/.*/],
     },

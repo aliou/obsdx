@@ -1,6 +1,26 @@
 #!/usr/bin/env node
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { boolean, run, string } from "@drizzle-team/brocli";
+
+/**
+ * CLI version. At build time, tsdown replaces `CLI_VERSION` with the string from
+ * package.json via `define`. In dev mode (tsx), the `declare` is not satisfied
+ * by the bundler, so we fall back to reading package.json at runtime.
+ */
+declare const CLI_VERSION: string;
+const version: string =
+  typeof CLI_VERSION !== "undefined"
+    ? CLI_VERSION
+    : JSON.parse(
+        readFileSync(
+          join(dirname(fileURLToPath(import.meta.url)), "../../package.json"),
+          "utf-8",
+        ),
+      ).version;
+
 import { setIndexLockTimeoutMs } from "../vault/lock";
 import { commands } from "./commands";
 import { handleCompletion } from "./completion";
@@ -69,7 +89,7 @@ async function main(): Promise<void> {
   await run(commands, {
     name: "obsdx",
     description: "Headless Obsidian vault intelligence CLI",
-    version: "0.1.0",
+    version: version,
     globals: globalOptions,
     argSource: argv,
     omitKeysOfUndefinedOptions: true,
