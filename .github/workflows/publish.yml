@@ -101,8 +101,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_PROVENANCE: true
 
-      - name: Get release tag
-        id: release-tag
+      - name: Get npm release tag
+        id: npm-tag
         if: steps.changesets.outputs.published == 'true'
         env:
           PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
@@ -116,10 +116,10 @@ jobs:
           )"
           echo "name=v${version}" >> "$GITHUB_OUTPUT"
 
-      - name: Create tag
+      - name: Create npm tag
         if: steps.changesets.outputs.published == 'true'
         env:
-          TAG: ${{ steps.release-tag.outputs.name }}
+          TAG: ${{ steps.npm-tag.outputs.name }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
@@ -137,11 +137,11 @@ jobs:
             git push origin "$TAG"
           fi
 
-      - name: Create GitHub Release
+      - name: Create npm GitHub Release
         if: steps.changesets.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release-tag.outputs.name }}
+          TAG: ${{ steps.npm-tag.outputs.name }}
         run: |
           set -euo pipefail
           if ! gh release view "$TAG" >/dev/null 2>&1; then
@@ -151,11 +151,60 @@ jobs:
               --notes "Release $TAG"
           fi
 
-      - name: Upload CLI binaries
-        if: steps.changesets.outputs.published == 'true'
+      - name: Detect CLI release
+        id: cli-release
+        run: |
+          set -euo pipefail
+          current_version=$(node -p "require('./packages/cli/package.json').version")
+          previous_version=$(git show HEAD^:packages/cli/package.json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>console.log(JSON.parse(s).version))" || true)
+
+          if [ -n "${previous_version:-}" ] && [ "$current_version" != "$previous_version" ]; then
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "tag=cli-v${current_version}" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create CLI tag
+        if: steps.cli-release.outputs.should_release == 'true'
+        env:
+          TAG: ${{ steps.cli-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally"
+          else
+            git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin"
+          else
+            git push origin "$TAG"
+          fi
+
+      - name: Create CLI GitHub Release
+        if: steps.cli-release.outputs.should_release == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.release-tag.outputs.name }}
+          TAG: ${{ steps.cli-release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "${{ github.event.workflow_run.head_sha }}" \
+              --title "$TAG" \
+              --notes "obsdx CLI $TAG"
+          fi
+
+      - name: Upload CLI binaries
+        if: steps.cli-release.outputs.should_release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.cli-release.outputs.tag }}
         run: |
           set -euo pipefail
           gh release upload "$TAG" packages/cli/dist/obsdx* --clobber

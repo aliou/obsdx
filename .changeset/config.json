@@ -3,11 +3,16 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [
-    ["@aliou/obsdx-base-ast", "@aliou/obsdx-base-engine", "@aliou/obsdx-index"]
+    [
+      "@aliou/obsdx-base-ast",
+      "@aliou/obsdx-base-engine",
+      "@aliou/obsdx-index",
+      "@aliou/obsdx-cli"
+    ]
   ],
   "linked": [],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@aliou/obsdx-cli"]
+  "ignore": []
 }
