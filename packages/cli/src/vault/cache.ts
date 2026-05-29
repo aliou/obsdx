@@ -729,9 +729,9 @@ export function listMentions(db: CacheDb, query: string): CachedLink[] {
 
 export function resolveCachedLinks(db: CacheDb): void {
   const files = listCachedFiles(db);
-  const exactPath = new Map(files.map((file) => [file.path, file.path]));
-  const exactName = groupBy(files, (file) => file.name);
-  const basename = groupBy(files, (file) => file.basename);
+  const exactPath = groupBy(files, (file) => file.path.normalize("NFC"));
+  const exactName = groupBy(files, (file) => file.name.normalize("NFC"));
+  const basename = groupBy(files, (file) => file.basename.normalize("NFC"));
   const aliases = buildAliasIndex(db);
   const links = db
     .prepare(
@@ -1402,7 +1402,7 @@ function dbLinkToCachedLink(row: DbLinkRow): CachedLink {
 }
 
 type LinkIndexes = {
-  exactPath: Map<string, string>;
+  exactPath: Map<string, string[]>;
   exactName: Map<string, string[]>;
   basename: Map<string, string[]>;
   aliases: Map<string, string[]>;
@@ -1419,6 +1419,18 @@ function resolveLinkRow(
   const sourceFolder = path.posix.dirname(link.source_path);
   const target = normalizeTarget(link.target_path_text ?? link.target_text);
 
+  // Self-referencing anchor: [#fragment] or [[#heading]] (empty path, heading set)
+  if (
+    target.startsWith("#") ||
+    (target === "" && (link.heading || link.block_id))
+  ) {
+    return {
+      resolvedPath: link.source_path,
+      ambiguousPaths: [],
+      unresolved: false,
+    };
+  }
+
   if (isExternalTarget(target)) {
     return {
       resolvedPath: null,
@@ -1429,7 +1441,7 @@ function resolveLinkRow(
 
   const candidates = unique([
     ...pathCandidates(target, sourceFolder, indexes),
-    ...(indexes.aliases.get(target) ?? []),
+    ...(indexes.aliases.get(target.normalize("NFC")) ?? []),
   ]);
 
   if (candidates.length === 1) {
@@ -1470,14 +1482,14 @@ function pathCandidates(
     relativeTarget,
     relativeTargetWithMd,
   ]) {
-    const exact = indexes.exactPath.get(candidate);
+    const exact = indexes.exactPath.get(candidate.normalize("NFC"));
     if (exact) {
-      candidates.push(exact);
+      candidates.push(...exact);
     }
   }
 
-  candidates.push(...(indexes.exactName.get(target) ?? []));
-  candidates.push(...(indexes.basename.get(target) ?? []));
+  candidates.push(...(indexes.exactName.get(target.normalize("NFC")) ?? []));
+  candidates.push(...(indexes.basename.get(target.normalize("NFC")) ?? []));
 
   return unique(candidates);
 }
@@ -1494,9 +1506,10 @@ function buildAliasIndex(db: CacheDb): Map<string, string[]> {
     for (const alias of aliasValues(
       safeJsonParse(row.value_json, "value_json"),
     )) {
-      const paths = aliases.get(alias) ?? [];
+      const key = alias.normalize("NFC");
+      const paths = aliases.get(key) ?? [];
       paths.push(row.file_path);
-      aliases.set(alias, paths);
+      aliases.set(key, paths);
     }
   }
 

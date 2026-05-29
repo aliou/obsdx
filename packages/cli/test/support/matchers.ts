@@ -18,6 +18,7 @@ declare module "vitest" {
       valueType?: string,
     ): T;
     toHaveResolvedLink(sourcePath: string, raw: string, targetPath: string): T;
+    toHaveUnresolvedLink(sourcePath: string, raw: string): T;
     toHaveTag(filePath: string, tag: string): T;
   }
 }
@@ -90,6 +91,25 @@ expect.extend({
         pass
           ? `expected DB not to resolve ${raw} from ${sourcePath} to ${targetPath}`
           : `expected DB to resolve ${raw} from ${sourcePath} to ${targetPath}, got ${this.utils.printReceived(row)}`,
+    };
+  },
+
+  toHaveUnresolvedLink(db: DatabaseSync, sourcePath: string, raw: string) {
+    const row = db
+      .prepare(
+        "select resolved_path as resolvedPath, unresolved from links where source_path = ? and raw = ?",
+      )
+      .get(sourcePath, raw) as
+      | { resolvedPath: string | null; unresolved: number }
+      | undefined;
+    const pass = row?.unresolved === 1;
+
+    return {
+      pass,
+      message: () =>
+        pass
+          ? `expected DB not to have unresolved link ${raw} from ${sourcePath}`
+          : `expected DB to have unresolved link ${raw} from ${sourcePath}, got ${this.utils.printReceived({ resolvedPath: row?.resolvedPath, unresolved: row?.unresolved })}`,
     };
   },
 
