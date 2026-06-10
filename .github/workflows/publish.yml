@@ -4,18 +4,22 @@ on:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   publish:
-    name: Publish packages
-    if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'main'
+    name: Publish
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    outputs:
+      staged: ${{ steps.check-publish.outputs.needs_staging }}
+      cli_release: ${{ steps.cli-release.outputs.should_release }}
+      cli_tag: ${{ steps.cli-release.outputs.tag }}
     permissions:
       contents: write
       pull-requests: write
@@ -25,60 +29,58 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 25
-          registry-url: https://registry.npmjs.org
+          node-version: "25"
+          registry-url: "https://registry.npmjs.org"
           scope: "@aliou"
-          cache: pnpm
+          cache: "pnpm"
 
-      - name: Upgrade npm for OIDC support
+      - name: Upgrade npm for stage publish support
         run: npm install -g npm@latest
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build packages and CLI
+      - name: Build
         run: pnpm build
 
       - name: Get release info
         id: release-info
         run: |
           pnpm changeset status --output=release.json 2>/dev/null || echo '{"releases":[]}' > release.json
-          node <<'NODE'
-          const fs = require('node:fs');
-          const path = require('node:path');
+          node <<NODE
+          const fs = require('fs');
+          const path = require('path');
           const release = JSON.parse(fs.readFileSync('release.json', 'utf8'));
-          const releases = release.releases?.filter((r) => r.type !== 'none') || [];
+          const releases = release.releases?.filter(r => r.type !== 'none') || [];
 
-          const dirs = fs.readdirSync('packages').filter((d) => {
+          const dirs = fs.readdirSync('packages').filter(d => {
             const pkgPath = path.join('packages', d, 'package.json');
             return fs.statSync(path.join('packages', d)).isDirectory() && fs.existsSync(pkgPath);
           });
-          const fixedPackages = dirs.map((d) =>
+          const allPackages = dirs.map(d =>
             JSON.parse(fs.readFileSync(path.join('packages', d, 'package.json'), 'utf8'))
           );
-          const fallbackSummary = fixedPackages
-            .filter((pkg) => pkg.name && pkg.version)
-            .map((pkg) => pkg.name)
+          const fallbackSummary = allPackages
+            .filter(pkg => pkg.name && pkg.version)
+            .map(pkg => pkg.name + '@' + pkg.version)
             .join(', ');
 
           let title = 'Updating ' + fallbackSummary;
           let commit = fallbackSummary;
-
           if (releases.length === 1) {
             const { name, newVersion } = releases[0];
             title = 'Updating ' + name + ' to version ' + newVersion;
             commit = name + '@' + newVersion;
           } else if (releases.length > 1) {
-            const summary = releases.map((r) => r.name + '@' + r.newVersion).join(', ');
+            const summary = releases.map(r => r.name + '@' + r.newVersion).join(', ');
             title = 'Updating ' + summary;
             commit = summary;
           }
@@ -89,115 +91,79 @@ jobs:
           rm -f release.json
         continue-on-error: true
 
-      - name: Create Release PR or publish
+      - name: Create Release PR or Stage
         id: changesets
         uses: changesets/action@v1
         with:
           version: pnpm changeset version
-          publish: pnpm publish:packages
-          title: ${{ steps.release-info.outputs.title || 'Updating @aliou/obsdx-base-ast, @aliou/obsdx-base-engine, @aliou/obsdx-index, @aliou/obsdx-cli' }}
-          commit: ${{ steps.release-info.outputs.commit || '@aliou/obsdx-base-ast, @aliou/obsdx-base-engine, @aliou/obsdx-index, @aliou/obsdx-cli' }}
+          title: ${{ steps.release-info.outputs.title }}
+          commit: ${{ steps.release-info.outputs.commit }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for unpublished packages and stage
+        id: check-publish
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        run: |
+          VERSIONS=""
+          for pkg_dir in packages/*/; do
+            [ -f "$pkg_dir/package.json" ] || continue
+            PACKAGE_NAME=$(node -p "require('$pkg_dir/package.json').name")
+            LOCAL_VERSION=$(node -p "require('$pkg_dir/package.json').version")
+            REGISTRY_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
+            if [ "$LOCAL_VERSION" != "$REGISTRY_VERSION" ]; then
+              echo "Staging $PACKAGE_NAME@$LOCAL_VERSION"
+              (cd "$pkg_dir" && npm stage publish)
+              if [ -n "$VERSIONS" ]; then
+                VERSIONS="$VERSIONS,$LOCAL_VERSION"
+              else
+                VERSIONS="$LOCAL_VERSION"
+              fi
+            fi
+          done
+
+          if [ -n "$VERSIONS" ]; then
+            echo "needs_staging=true" >> "$GITHUB_OUTPUT"
+            echo "version=$(echo "$VERSIONS" | cut -d',' -f1)" >> "$GITHUB_OUTPUT"
+          else
+            echo "needs_staging=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
           NPM_CONFIG_PROVENANCE: true
 
-      - name: Get npm release tag
-        id: npm-tag
-        if: steps.changesets.outputs.published == 'true'
+      - name: Create GitHub releases
+        if: steps.check-publish.outputs.needs_staging == 'true'
         env:
-          PUBLISHED_PACKAGES: ${{ steps.changesets.outputs.publishedPackages }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          version="$(node <<'NODE'
-          const packages = JSON.parse(process.env.PUBLISHED_PACKAGES || '[]');
-          if (!packages.length) throw new Error('No published packages found');
-          console.log(packages[0].version);
-          NODE
-          )"
-          echo "name=v${version}" >> "$GITHUB_OUTPUT"
-
-      - name: Create npm tag
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          TAG: ${{ steps.npm-tag.outputs.name }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists locally"
-          else
-            git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
-          fi
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists on origin"
-          else
-            git push origin "$TAG"
-          fi
-
-      - name: Create npm GitHub Release
-        if: steps.changesets.outputs.published == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.npm-tag.outputs.name }}
-        run: |
-          set -euo pipefail
+          TAG="v${{ steps.check-publish.outputs.version }}"
+          git tag "$TAG"
+          git push origin "$TAG"
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" \
-              --target "${{ github.event.workflow_run.head_sha }}" \
-              --title "$TAG" \
-              --notes "Release $TAG"
+            gh release create "$TAG" --title "$TAG" --notes "Release $TAG"
           fi
 
       - name: Detect CLI release
         id: cli-release
         run: |
-          set -euo pipefail
           current_version=$(node -p "require('./packages/cli/package.json').version")
           previous_version=$(git show HEAD^:packages/cli/package.json 2>/dev/null | node -e "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>console.log(JSON.parse(s).version))" || true)
 
           if [ -n "${previous_version:-}" ] && [ "$current_version" != "$previous_version" ]; then
             echo "should_release=true" >> "$GITHUB_OUTPUT"
-            echo "tag=cli-v${current_version}" >> "$GITHUB_OUTPUT"
+            echo "tag=@aliou/obsdx-cli@${current_version}" >> "$GITHUB_OUTPUT"
           else
             echo "should_release=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create CLI tag
-        if: steps.cli-release.outputs.should_release == 'true'
-        env:
-          TAG: ${{ steps.cli-release.outputs.tag }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists locally"
-          else
-            git tag "$TAG" "${{ github.event.workflow_run.head_sha }}"
-          fi
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists on origin"
-          else
-            git push origin "$TAG"
           fi
 
       - name: Create CLI GitHub Release
         if: steps.cli-release.outputs.should_release == 'true'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.cli-release.outputs.tag }}
         run: |
-          set -euo pipefail
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" \
-              --target "${{ github.event.workflow_run.head_sha }}" \
-              --title "$TAG" \
-              --notes "obsdx CLI $TAG"
+            gh release create "$TAG" --title "$TAG" --notes "Release $TAG"
           fi
 
       - name: Upload CLI binaries
@@ -206,5 +172,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.cli-release.outputs.tag }}
         run: |
-          set -euo pipefail
           gh release upload "$TAG" packages/cli/dist/obsdx* --clobber
