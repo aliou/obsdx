@@ -1,3 +1,5 @@
+import { maskMarkdownCode } from "./code-mask";
+
 export type Wikilink = {
   raw: string;
   embedded: boolean;
@@ -14,7 +16,7 @@ export function parseWikilinks(
   lineOffsets: number[],
 ): Wikilink[] {
   const links: Wikilink[] = [];
-  const matches = source.matchAll(/!?\[\[([^\]]+)\]\]/g);
+  const matches = maskMarkdownCode(source).matchAll(/!?\[\[([^\]]+)\]\]/g);
 
   for (const match of matches) {
     const raw = match[0];

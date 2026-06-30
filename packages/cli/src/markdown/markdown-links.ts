@@ -1,3 +1,5 @@
+import { maskMarkdownCode } from "./code-mask";
+
 export type MarkdownLink = {
   raw: string;
   embedded: boolean;
@@ -12,7 +14,9 @@ export function parseMarkdownLinks(
   lineOffsets: number[],
 ): MarkdownLink[] {
   const links: MarkdownLink[] = [];
-  const matches = source.matchAll(/!?\[([^\]]*)\]\(([^)]+)\)/g);
+  const matches = maskMarkdownCode(source).matchAll(
+    /!?\[([^\]]*)\]\(([^)]+)\)/g,
+  );
 
   for (const match of matches) {
     const raw = match[0];
