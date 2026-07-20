@@ -109,12 +109,27 @@ jobs:
           VERSIONS=""
           for pkg_dir in packages/*/; do
             [ -f "$pkg_dir/package.json" ] || continue
+            IS_PRIVATE=$(node -p "require('./${pkg_dir}package.json').private === true")
+            if [ "$IS_PRIVATE" = "true" ]; then
+              echo "Skipping private package in $pkg_dir"
+              continue
+            fi
+
             PACKAGE_NAME=$(node -p "require('./${pkg_dir}package.json').name")
             LOCAL_VERSION=$(node -p "require('./${pkg_dir}package.json').version")
             REGISTRY_VERSION=$(npm view "$PACKAGE_NAME" version 2>/dev/null || echo "0.0.0")
             if [ "$LOCAL_VERSION" != "$REGISTRY_VERSION" ]; then
               echo "Staging $PACKAGE_NAME@$LOCAL_VERSION"
-              (cd "$pkg_dir" && npm stage publish)
+              if STAGE_OUTPUT=$(cd "$pkg_dir" && npm stage publish 2>&1); then
+                printf '%s\n' "$STAGE_OUTPUT"
+              elif grep -q "npm error code E409" <<< "$STAGE_OUTPUT" &&
+                grep -q "Cannot stage previously published version" <<< "$STAGE_OUTPUT"; then
+                echo "$PACKAGE_NAME@$LOCAL_VERSION is already staged"
+              else
+                printf '%s\n' "$STAGE_OUTPUT" >&2
+                exit 1
+              fi
+
               if [ -n "$VERSIONS" ]; then
                 VERSIONS="$VERSIONS,$LOCAL_VERSION"
               else
